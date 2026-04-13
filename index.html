@@ -2,683 +2,2350 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ID Card Scanner</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>OnSlot - Buy Cheap Data</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        .records-page-btn {
-            background: #673AB7;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .orb-1 { width: 500px; height: 500px; background: #f59e0b; top: -200px; left: -200px; }
+        .orb-2 { width: 400px; height: 400px; background: #8b5cf6; bottom: -150px; right: -150px; animation-delay: -5s; }
+        .orb-3 { width: 300px; height: 300px; background: #10b981; top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: -10s; opacity: 0.15; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(15, 25, 35, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 100;
+            padding: 16px 24px;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #f59e0b, #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .logo span {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #f59e0b);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-name {
+            color: #f59e0b;
+            font-weight: 500;
+        }
+
+        .admin-btn-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .admin-btn {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #f59e0b;
             cursor: pointer;
-            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .admin-btn:hover {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
             font-weight: bold;
-            margin: 10px 0;
+            padding: 2px 6px;
+            border-radius: 50px;
+            min-width: 20px;
+            text-align: center;
+            animation: pulse 1.5s infinite;
+        }
+
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #ef4444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 120px 24px 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-        
-        .records-page-btn:hover {
-            background: #5E35B1;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(103, 58, 183, 0.3);
-        }
-        
-        .records-page-btn:active {
-            transform: translateY(0);
-        }
-        
-        .records-link-container {
-            text-align: center;
-            margin: 15px 0;
-        }
-        
-        .btn-container {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin: 15px 0;
+            background: rgba(245, 158, 11, 0.15);
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            margin-bottom: 24px;
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
-        .video-container {
-            width: 100%;
-            max-width: 300px;
-            height: 200px;
-            margin: 0 auto 15px auto;
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-            border: 2px solid #4cc9f0;
-            background: #000;
-        }
-        
-        #video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .scanner-section {
-            text-align: center;
-        }
-        
-        .controls {
-            justify-content: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        
-        .btn {
-            padding: 8px 15px;
-            font-size: 14px;
-        }
-        
-        .video-container::after {
-            content: "";
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 120px;
-            height: 60px;
-            border: 1px solid #4cc9f0;
-            border-radius: 6px;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7), 
-                        0 0 8px rgba(76, 201, 240, 0.6);
-            pointer-events: none;
-            z-index: 5;
+        .badge-pulse {
+            width: 8px;
+            height: 8px;
+            background: #f59e0b;
+            border-radius: 50%;
+            animation: badgePulse 1.5s infinite;
         }
 
-        .video-container::before {
-            content: "SCAN HERE";
-            position: absolute;
-            top: calc(50% - 40px);
-            left: 50%;
-            transform: translateX(-50%);
-            color: #4cc9f0;
-            font-weight: bold;
-            text-shadow: 0 0 3px rgba(76, 201, 240, 0.8);
-            font-size: 10px;
-            white-space: nowrap;
-            z-index: 6;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 2px 6px;
-            border-radius: 3px;
+        @keyframes badgePulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
         }
 
-        .video-container .scan-line {
-            position: absolute;
-            top: 50%;
-            left: 5%;
-            width: 90%;
-            height: 2px;
-            background: rgba(76, 201, 240, 0.6);
-            animation: scanning 1.5s infinite linear;
-            z-index: 7;
-        }
-        
-        @keyframes scanning {
-            0% {
-                top: 20%;
-            }
-            50% {
-                top: 80%;
-            }
-            100% {
-                top: 20%;
-            }
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin-bottom: 20px;
         }
 
-        .scan-status {
-            max-width: 300px;
-            margin: 0 auto 10px auto;
-            padding: 8px;
-            border-radius: 6px;
-            font-weight: bold;
-            text-align: center;
-            font-size: 14px;
+        .gradient-text {
+            background: linear-gradient(135deg, #f59e0b, #8b5cf6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
         }
-        
-        .results-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 15px;
-        }
-        
-        @media (max-width: 768px) {
-            .video-container {
-                max-width: 250px;
-                height: 160px;
-            }
-            
-            .video-container::after {
-                width: 100px;
-                height: 50px;
-            }
-            
-            .results-section {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .video-container {
-                max-width: 220px;
-                height: 140px;
-            }
-            
-            .video-container::after {
-                width: 90px;
-                height: 45px;
-            }
-            
-            .video-container::before {
-                font-size: 9px;
-                top: calc(50% - 35px);
-            }
-            
-            .btn {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
+
+        .hero-subtitle {
+            font-size: 1.1rem;
+            color: #94a3b8;
+            line-height: 1.6;
+            margin-bottom: 32px;
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 15px;
+            padding: 60px 24px;
+            position: relative;
+            z-index: 1;
         }
 
-        h1 {
-            font-size: 1.8rem;
-            margin-bottom: 10px;
+        .section-header {
             text-align: center;
+            margin-bottom: 50px;
         }
 
-        .current-scan, .saved-records {
-            padding: 12px;
+        .section-tag {
+            color: #f59e0b;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            display: inline-block;
+            margin-bottom: 16px;
+        }
+
+        .section-header h2 {
+            font-size: 2rem;
             margin-bottom: 12px;
         }
 
-        .manual-entry {
-            padding: 12px;
-            margin-top: 15px;
+        /* Network Cards - Main UI */
+        .networks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 550px;
+            margin: 0 auto;
         }
 
-        /* Additional styles for scanner elements */
-        .mode-toggle-container {
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .mode-toggle {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            padding: 10px 15px;
-            background: #f8f9fa;
-            border-radius: 25px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .toggle-slider {
-            width: 50px;
-            height: 25px;
-            background: #ccc;
-            border-radius: 25px;
-            position: relative;
-            transition: background 0.3s;
-        }
-        
-        .toggle-slider:after {
-            content: '';
-            position: absolute;
-            width: 21px;
-            height: 21px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.3s;
-        }
-        
-        input[type="checkbox"]:checked + .toggle-slider {
-            background: #4CAF50;
-        }
-        
-        input[type="checkbox"]:checked + .toggle-slider:after {
-            transform: translateX(25px);
-        }
-        
-        input[type="checkbox"] {
-            display: none;
-        }
-        
-        .toggle-label {
-            font-weight: bold;
-            color: #495057;
-        }
-        
-        .paper-badge {
-            background: #ff9800;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            font-weight: bold;
-            display: inline-block;
-            margin-bottom: 10px;
-        }
-        
-        .paper-tag {
-            background: #ff9800 !important;
-        }
-        
-        .numbers-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 8px;
-            margin: 10px 0;
-        }
-        
-        .paper-number-item {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            padding: 8px;
-            border-radius: 4px;
-            text-align: center;
-            font-family: monospace;
-            font-weight: bold;
-        }
-        
-        .paper-record {
-            border-left: 4px solid #ff9800;
-        }
-        
-        .paper-document {
-            border-left: 4px solid #ff9800;
-        }
-        
-        .department-tables {
-            margin-bottom: 20px;
-        }
-        
-        .paper-entry-container {
-            margin-bottom: 15px;
-        }
-
-        .paper-entry-form {
-            border: 1px solid #dee2e6;
-        }
-
-        .paper-entry-form h4 {
-            margin: 0 0 10px 0;
-            font-size: 1em;
-            color: #495057;
-        }
-
-        details summary {
-            user-select: none;
-        }
-
-        details[open] summary {
-            margin-bottom: 5px;
-        }
-
-        .numbers-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
-        }
-
-        .paper-number-item {
-            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-            border: 2px solid #ffd43b;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 1.1em;
-            color: #856404;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .paper-number-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-
-        /* Department table styles */
-        .department-table-container {
-            margin-bottom: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+        .network-card {
+            background: rgba(15, 25, 35, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
             overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
 
-        .table-header {
-            background: #f8f9fa;
+        .network-card.mtn:hover {
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        .network-card.airtel:hover {
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .network-card.glo:hover {
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .network-card.expanded {
+            border-width: 2px;
+        }
+
+        .network-card.mtn.expanded {
+            border-color: #f59e0b;
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.2);
+        }
+
+        .network-card.airtel.expanded {
+            border-color: #ef4444;
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.2);
+        }
+
+        .network-card.glo.expanded {
+            border-color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.2);
+        }
+
+        .network-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            transition: all 0.2s;
+        }
+
+        .network-header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .network-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .network-card.mtn .network-icon {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+        }
+
+        .network-card.airtel .network-icon {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+        }
+
+        .network-card.glo .network-icon {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+        }
+
+        .network-info h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .network-card.mtn .network-info h3 { color: #f59e0b; }
+        .network-card.airtel .network-info h3 { color: #ef4444; }
+        .network-card.glo .network-info h3 { color: #10b981; }
+
+        .network-info p {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .network-arrow {
+            color: #94a3b8;
+            transition: transform 0.3s ease;
+            font-size: 1.2rem;
+        }
+
+        .network-card.expanded .network-arrow {
+            transform: rotate(180deg);
+        }
+
+        .network-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+            padding: 0 24px;
+        }
+
+        .network-card.expanded .network-content {
+            max-height: 550px;
+            padding: 0 24px 24px 24px;
+        }
+
+        .network-phone-input {
+            margin-bottom: 20px;
+        }
+
+        .phone-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 60px;
+            padding: 4px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+        }
+
+        .phone-input-wrapper:focus-within {
+            border-color: #f59e0b;
+        }
+
+        .phone-input-wrapper i {
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
+        .phone-input-wrapper input {
+            width: 100%;
+            padding: 16px 16px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .network-plans {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .plan-card {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 20px;
+            padding: 16px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .plan-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .plan-card.selected {
+            border-width: 2px;
+        }
+
+        .network-card.mtn .plan-card.selected {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .network-card.airtel .plan-card.selected {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.15);
+        }
+
+        .network-card.glo .plan-card.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .plan-size {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+
+        .plan-price {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .network-card.mtn .plan-price { color: #f59e0b; }
+        .network-card.airtel .plan-price { color: #ef4444; }
+        .network-card.glo .plan-price { color: #10b981; }
+
+        .network-buy-btn {
+            width: 100%;
+            border: none;
+            padding: 14px;
+            border-radius: 60px;
+            color: white;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .network-card.mtn .network-buy-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .network-card.airtel .network-buy-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        .network-card.glo .network-buy-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        .network-buy-btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .network-buy-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Referral Section Styles */
+        .referral-section {
+            background: rgba(15, 25, 35, 0.7);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 24px;
+            margin-bottom: 40px;
+            max-width: 550px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .referral-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .referral-header i {
+            font-size: 28px;
+            color: #f59e0b;
+        }
+
+        .referral-header h3 {
+            font-size: 1.3rem;
+        }
+
+        .referral-code-box {
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 16px;
             padding: 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
         }
 
-        .table-header h3 {
-            margin: 0;
-            color: #333;
-        }
-
-        .count-badge {
-            background: #007bff;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 0.9em;
-        }
-
-        .copy-dept-btn, .copy-summary-btn, .print-dept-btn {
-            background: #28a745;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.9em;
-            margin-left: 5px;
-        }
-
-        .print-dept-btn {
-            background: #17a2b8;
-        }
-
-        .print-dept-btn:hover {
-            background: #138496;
-        }
-
-        .clear-records-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
+        .referral-code {
+            font-size: 1.3rem;
             font-weight: bold;
-            margin: 10px 0;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.3s ease;
+            letter-spacing: 2px;
+            color: #f59e0b;
         }
 
-        .clear-records-btn:hover {
-            background: #c82333;
-            transform: translateY(-2px);
+        .copy-referral-btn {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: #f59e0b;
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        .table-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .department-table, .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .department-table th, .summary-table th {
-            background: #343a40;
+        .copy-referral-btn:hover {
+            background: #f59e0b;
             color: white;
+        }
+
+        .share-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .share-btn {
+            flex: 1;
             padding: 12px;
-            text-align: left;
-        }
-
-        .department-table td, .summary-table td {
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .department-table tr:hover, .summary-table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .mark-badge {
-            background: #ffc107;
-            color: #212529;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.8em;
-            font-weight: bold;
-        }
-
-        .no-data {
-            text-align: center;
-            color: #6c757d;
-            font-style: italic;
-            padding: 20px;
-        }
-
-        .copy-buttons {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .copy-btn {
-            background: #17a2b8;
-            color: white;
+            border-radius: 40px;
             border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .share-btn.whatsapp {
+            background: #25D366;
+            color: white;
+        }
+
+        .share-btn.facebook {
+            background: #1877F2;
+            color: white;
+        }
+
+        .share-btn.twitter {
+            background: #1DA1F2;
+            color: white;
+        }
+
+        .share-btn.telegram {
+            background: #0088cc;
+            color: white;
+        }
+
+        .share-btn.snapchat {
+            background: #FFFC00;
+            color: #000000;
+        }
+
+        .share-btn:hover {
+            transform: scale(1.02);
+        }
+
+        .referral-stats {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .referral-stat {
+            text-align: center;
+            flex: 1;
+        }
+
+        .referral-stat .label {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+
+        .referral-stat .value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #f59e0b;
+        }
+
+        .free-data-banner {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(245, 158, 11, 0.1));
+            border-radius: 20px;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .free-data-banner h4 {
+            color: #10b981;
+            margin-bottom: 5px;
+        }
+
+        .free-data-banner p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+
+        .promo-ended {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .promo-ended h4 {
+            color: #ef4444;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .feature-card {
+            background: rgba(15, 25, 35, 0.5);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .feature-icon {
+            font-size: 32px;
+            color: #f59e0b;
+            margin-bottom: 12px;
+        }
+
+        .feature-card h4 {
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        /* Admin Panel Styles */
+        .admin-panel {
+            background: rgba(15, 25, 35, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 28px;
+            padding: 24px;
+            margin-bottom: 40px;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             cursor: pointer;
         }
 
-        .record-item {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-            background: white;
+        .admin-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .registered-person {
-            border-left: 4px solid #28a745;
+        .admin-header h3 i {
+            color: #f59e0b;
         }
 
-        .unregistered-person {
-            border-left: 4px solid #ffc107;
-        }
-
-        .registered-badge, .unregistered-badge {
-            display: inline-block;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
+        .order-count-badge {
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
             font-weight: bold;
-            margin-bottom: 10px;
-        }
-
-        .registered-badge {
-            background: #28a745;
-            color: white;
-        }
-
-        .unregistered-badge {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .department-badge {
-            display: inline-block;
-            background: #6f42c1;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
+            padding: 2px 8px;
+            border-radius: 50px;
             margin-left: 10px;
         }
 
-        .department-tag {
-            display: inline-block;
-            background: #17a2b8;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            margin-bottom: 10px;
+        .admin-content {
+            display: none;
         }
 
-        /* Sound toggle styles */
-        .sound-toggle-container {
-            margin-bottom: 15px;
+        .admin-content.show {
+            display: block;
+        }
+
+        .pending-orders-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .pending-order {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .order-details {
+            flex: 2;
+        }
+
+        .order-details p {
+            margin: 4px 0;
+            font-size: 0.85rem;
+        }
+
+        .order-details strong {
+            color: #f59e0b;
+        }
+
+        .order-status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .status-processing {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+        }
+
+        .status-declined {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        .status-completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .accept-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pending-btn {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #f59e0b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .decline-btn {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #ef4444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .accept-btn:hover, .pending-btn:hover, .decline-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .accept-btn:disabled, .pending-btn:disabled, .decline-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-orders {
+            text-align: center;
+            padding: 40px;
+            color: #94a3b8;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 450px;
+            width: 90%;
+            background: rgba(15, 25, 35, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 28px;
+            padding: 40px 32px;
             text-align: center;
         }
-        
-        .sound-toggle {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            padding: 8px 15px;
-            background: #f8f9fa;
-            border-radius: 20px;
-            border: 2px solid #e9ecef;
-        }
-        
-        .sound-toggle-slider {
-            width: 40px;
-            height: 20px;
-            background: #ccc;
-            border-radius: 20px;
-            position: relative;
-            transition: background 0.3s;
-        }
-        
-        .sound-toggle-slider:after {
-            content: '';
+
+        .modal-close {
             position: absolute;
-            width: 16px;
-            height: 16px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: transform 0.3s;
-        }
-        
-        input[type="checkbox"]:checked + .sound-toggle-slider {
-            background: #2196F3;
-        }
-        
-        input[type="checkbox"]:checked + .sound-toggle-slider:after {
-            transform: translateX(20px);
-        }
-        
-        .sound-toggle-label {
-            font-weight: bold;
-            color: #495057;
-            font-size: 0.9em;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #94a3b8;
         }
 
-        /* Print styles */
-        @media print {
-            .table-actions, .header-actions, .department-tabs, .search-container {
-                display: none;
-            }
-            
-            .department-table-container {
-                break-inside: avoid;
-                page-break-inside: avoid;
-            }
-            
-            .table-header {
-                background: #f8f9fa !important;
-                color: black !important;
-            }
+        .modal-icon {
+            font-size: 50px;
+            margin-bottom: 16px;
         }
 
-        .fast-scan-notice {
-            background: #e3f2fd;
-            color: #1565c0;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            font-weight: bold;
+        .modal-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .modal-content p {
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .passcode-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: white;
+            margin: 15px 0;
+            outline: none;
+            text-align: center;
+            font-size: 1.2rem;
+            letter-spacing: 5px;
+        }
+
+        .passcode-input:focus {
+            border-color: #f59e0b;
+        }
+
+        .bank-details {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .bank-details p {
+            margin-bottom: 8px;
+            color: white;
+        }
+
+        .copy-btn {
+            background: rgba(245, 158, 11, 0.2);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #f59e0b;
+            cursor: pointer;
             margin-top: 10px;
-            display: inline-block;
+            width: 100%;
+        }
+
+        .confirm-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: white;
+            margin: 15px 0;
+            outline: none;
+        }
+
+        .confirm-input:focus {
+            border-color: #f59e0b;
+        }
+
+        .confirm-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 14px;
+            border-radius: 50px;
+            width: 100%;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1100;
+        }
+
+        .toast {
+            background: rgba(15, 25, 35, 0.95);
+            backdrop-filter: blur(12px);
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: slideUp 0.3s ease;
+        }
+
+        .toast.success { border-left: 3px solid #10b981; }
+        .toast.error { border-left: 3px solid #ef4444; }
+        .toast.warning { border-left: 3px solid #f59e0b; }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .footer {
+            background: rgba(5, 5, 5, 0.9);
+            padding: 40px 24px 20px;
+            text-align: center;
+        }
+
+        .footer p {
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+
+        .dashboard-content {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2rem;
+            }
+            .network-plans {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .pending-order {
+                flex-direction: column;
+            }
+            .order-actions {
+                width: 100%;
+                justify-content: center;
+            }
+            .network-header {
+                padding: 16px 20px;
+            }
+            .network-info h3 {
+                font-size: 1.2rem;
+            }
+            .network-icon {
+                width: 45px;
+                height: 45px;
+                font-size: 22px;
+            }
+            .share-buttons {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🎓 ID Card Scanner</h1>
-        
-        <!-- Records Page Button -->
-        <div class="records-link-container">
-            <button id="viewRecordsBtn" class="records-page-btn">
-                📋 View All Saved Records
-            </button>
-            <button id="clearRecordsBtn" class="clear-records-btn">
-                🗑️ Clear All Records
-            </button>
-        </div>
-        
-        <div class="scanner-section">
-            <!-- Paper Mode Toggle will be added here by JavaScript -->
-            <!-- Sound Toggle will be added here by JavaScript -->
-            <div class="video-container">
-                <video id="video" autoplay playsinline></video>
-                <div class="scan-line"></div>
-                <canvas id="canvas" style="display: none;"></canvas>
-            </div>
-            
-            <div class="controls">
-                <button id="startCamera" class="btn">Start Camera</button>
-                <button id="capture" class="btn btn-primary" disabled>Capture ID Card</button>
-                <button id="nextPerson" class="btn btn-secondary" disabled>Next Person</button>
-            </div>
-        </div>
+    <div class="bg-animation">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
 
-        <div class="results-section">
-            <h2>Scanned Data</h2>
-            <div id="currentScan" class="current-scan">
-                <p><strong>Current Scan:</strong></p>
-                <div id="currentData"></div>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-bolt"></i></div>
+                <span>OnSlot</span>
             </div>
-            
-            <div class="saved-records">
-                <h3>All Scanned Records</h3>
-                <!-- Copy buttons and department tables will be added here by JavaScript -->
-                <div id="recordsList" class="records-list"></div>
+            <div class="user-info" id="userInfo" style="display: none;">
+                <span class="user-name" id="userNameDisplay"></span>
+                <div class="admin-btn-container" id="adminBtnContainer">
+                    <button class="admin-btn" onclick="showAdminPasscodeModal()">
+                        <i class="fas fa-shield-alt"></i> Admin
+                    </button>
+                    <span class="notification-badge" id="adminNotificationBadge" style="display: none;">0</span>
+                </div>
+                <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
             </div>
         </div>
+    </nav>
 
-        <!-- Manual entry form as backup - REMOVED NAME FIELD -->
-        <div class="manual-entry">
-            <h3>Manual Student Entry</h3>
-            <form id="manualForm">
-                <input type="text" id="matricInput" placeholder="Matric Number" required>
-                <button type="submit" class="btn">Add Student Manually</button>
-            </form>
+    <div id="authSection" class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-pulse"></span>
+                Welcome to OnSlot
+            </div>
+            <h1 class="hero-title">
+                Buy Data<br>
+                <span class="gradient-text">At The Best Prices</span>
+            </h1>
+            <p class="hero-subtitle">
+                Tap on any network below to buy data instantly.
+            </p>
+            
+            <div id="loginForm" class="auth-form">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="loginEmail" placeholder="Email address">
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" placeholder="Password">
+                </div>
+                <button class="buy-btn" onclick="login()" style="margin-top: 10px;">Login <i class="fas fa-arrow-right"></i></button>
+                <div class="auth-switch">Don't have an account? <a onclick="showSignup()">Sign up</a></div>
+            </div>
+
+            <div id="signupForm" class="auth-form" style="display: none;">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="signupName" placeholder="Full name">
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="signupEmail" placeholder="Email address">
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-phone"></i>
+                    <input type="tel" id="signupPhone" placeholder="Phone number">
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signupPassword" placeholder="Password">
+                </div>
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <i class="fas fa-gift"></i>
+                    <input type="text" id="referralCodeInput" placeholder="Referral code (optional)">
+                </div>
+                <button class="buy-btn" onclick="signup()" style="margin-top: 10px;">Create Account <i class="fas fa-user-plus"></i></button>
+                <div class="auth-switch">Already have an account? <a onclick="showLogin()">Login</a></div>
+            </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
-    <script src="script.js"></script>
+    <div id="dashboardContent" class="dashboard-content">
+        <section class="hero">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="badge-pulse"></span>
+                    Nigeria's Cheapest Data
+                </div>
+                <h1 class="hero-title">
+                    Buy Data<br>
+                    <span class="gradient-text">At The Best Prices</span>
+                </h1>
+                <p class="hero-subtitle">
+                    Tap on any network below to buy data instantly.
+                </p>
+            </div>
+        </section>
+
+        <div class="container">
+            <!-- Free Data Banner -->
+            <div class="free-data-banner" id="freeDataBanner">
+                <h4><i class="fas fa-gift"></i> FREE 100MB DATA!</h4>
+                <p>First 20 people to sign up get 100MB FREE! <span id="spotsLeft">20 spots left</span></p>
+            </div>
+
+            <!-- Referral Section -->
+            <div class="referral-section" id="referralSection">
+                <div class="referral-header">
+                    <i class="fas fa-users"></i>
+                    <h3>Refer & Earn</h3>
+                </div>
+                <div class="referral-code-box">
+                    <span class="referral-code" id="userReferralCode">Loading...</span>
+                    <button class="copy-referral-btn" onclick="copyReferralCode()">Copy Code</button>
+                </div>
+                <div class="share-buttons">
+                    <button class="share-btn whatsapp" onclick="shareOnWhatsApp()">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </button>
+                    <button class="share-btn facebook" onclick="shareOnFacebook()">
+                        <i class="fab fa-facebook"></i> Facebook
+                    </button>
+                    <button class="share-btn twitter" onclick="shareOnTwitter()">
+                        <i class="fab fa-twitter"></i> Twitter
+                    </button>
+                    <button class="share-btn telegram" onclick="shareOnTelegram()">
+                        <i class="fab fa-telegram"></i> Telegram
+                    </button>
+                    <button class="share-btn snapchat" onclick="shareOnSnapchat()">
+                        <i class="fab fa-snapchat"></i> Snapchat
+                    </button>
+                </div>
+                <div class="referral-stats">
+                    <div class="referral-stat">
+                        <div class="label">Reward Earned</div>
+                        <div class="value" id="rewardEarned">0 MB</div>
+                    </div>
+                    <div class="referral-stat">
+                        <div class="label">Referrals Needed</div>
+                        <div class="value" id="referralsNeeded">5 referrals</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Cards -->
+            <div class="networks-container">
+                <!-- MTN Card -->
+                <div class="network-card mtn" data-network="mtn">
+                    <div class="network-header" onclick="toggleNetwork('mtn')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-tower-cell"></i></div>
+                            <div class="network-info">
+                                <h3>MTN</h3>
+                                <p>Best coverage nationwide</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down network-arrow"></i>
+                    </div>
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
+                            </div>
+                        </div>
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="140">
+                                <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦140</div>
+                            </div>
+                            <div class="plan-card" data-mb="300" data-price="220">
+                                <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦220</div>
+                            </div>
+                            <div class="plan-card" data-mb="700" data-price="520">
+                                <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦520</div>
+                            </div>
+                            <div class="plan-card" data-mb="1024" data-price="600">
+                                <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
+                                <div class="plan-price">₦600</div>
+                            </div>
+                        </div>
+                        <button class="network-buy-btn" disabled>
+                            <i class="fas fa-bolt"></i> Buy MTN Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Airtel Card -->
+                <div class="network-card airtel" data-network="airtel">
+                    <div class="network-header" onclick="toggleNetwork('airtel')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-broadcast-tower"></i></div>
+                            <div class="network-info">
+                                <h3>Airtel</h3>
+                                <p>Fast and reliable</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down network-arrow"></i>
+                    </div>
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
+                            </div>
+                        </div>
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="120">
+                                <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦120</div>
+                            </div>
+                            <div class="plan-card" data-mb="300" data-price="210">
+                                <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦210</div>
+                            </div>
+                            <div class="plan-card" data-mb="700" data-price="510">
+                                <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦510</div>
+                            </div>
+                            <div class="plan-card" data-mb="1024" data-price="600">
+                                <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
+                                <div class="plan-price">₦600</div>
+                            </div>
+                        </div>
+                        <button class="network-buy-btn" disabled>
+                            <i class="fas fa-bolt"></i> Buy Airtel Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Glo Card -->
+                <div class="network-card glo" data-network="glo">
+                    <div class="network-header" onclick="toggleNetwork('glo')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-globe"></i></div>
+                            <div class="network-info">
+                                <h3>Glo</h3>
+                                <p>Cheapest data plans</p>
+                            </div>
+                        </div>
+                        <i class="fas fa-chevron-down network-arrow"></i>
+                    </div>
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
+                            </div>
+                        </div>
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="110">
+                                <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦110</div>
+                            </div>
+                            <div class="plan-card" data-mb="300" data-price="200">
+                                <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦200</div>
+                            </div>
+                            <div class="plan-card" data-mb="700" data-price="500">
+                                <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
+                                <div class="plan-price">₦500</div>
+                            </div>
+                            <div class="plan-card" data-mb="1024" data-price="550">
+                                <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
+                                <div class="plan-price">₦550</div>
+                            </div>
+                        </div>
+                        <button class="network-buy-btn" disabled>
+                            <i class="fas fa-bolt"></i> Buy Glo Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel - Pending Orders -->
+        <div class="admin-panel" id="adminPanel" style="display: none;">
+            <div class="admin-header" onclick="toggleAdminPanel()">
+                <h3><i class="fas fa-clock"></i> Order Management <span class="order-count-badge" id="orderCountBadge">0</span></h3>
+                <i class="fas fa-chevron-down" id="adminChevron"></i>
+            </div>
+            <div class="admin-content" id="adminContent">
+                <div class="pending-orders-list" id="pendingOrdersList">
+                    <div class="empty-orders">No pending orders</div>
+                </div>
+                <div class="secret-code" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <i class="fas fa-lock"></i> Admin access protected
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Why Choose Us</span>
+                <h2>Fast & Reliable</h2>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                    <h4>Instant Delivery</h4>
+                    <p>Get your data in seconds</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
+                    <h4>100% Guaranteed</h4>
+                    <p>Every transaction is secure</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-headset"></i></div>
+                    <h4>24/7 Support</h4>
+                    <p>We're here to help you</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Passcode Modal -->
+    <div class="modal" id="adminPasscodeModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeAdminPasscodeModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-lock"></i></div>
+            <h3>Admin Access</h3>
+            <p>Enter passcode to access admin panel</p>
+            <input type="password" id="adminPasscode" class="passcode-input" placeholder="•••••" maxlength="5" autocomplete="off">
+            <button class="confirm-btn" onclick="verifyAdminPasscode()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 10px;">
+                <i class="fas fa-unlock-alt"></i> Verify Access
+            </button>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closePaymentModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon"><i class="fas fa-money-bill-wave"></i></div>
+            <h3>Complete Your Payment</h3>
+            <p>Send <strong>₦<span id="payAmount">0</span></strong> to this account</p>
+            
+            <div class="bank-details">
+                <p><strong>Bank:</strong> Moniepoint MFB</p>
+                <p><strong>Account Name:</strong> OnSlot Data Services</p>
+                <p><strong>Account Number:</strong> 9012345678</p>
+                <button class="copy-btn" onclick="copyAccount()">📋 Copy Account Number</button>
+            </div>
+
+            <p style="font-size: 0.8rem; margin-bottom: 10px;">After payment, enter your transaction details below:</p>
+            
+            <input type="text" id="transactionRef" class="confirm-input" placeholder="Transaction reference / Amount sent">
+            <input type="text" id="senderName" class="confirm-input" placeholder="Your name as on bank transfer">
+            
+            <button class="confirm-btn" onclick="submitPaymentConfirmation()">
+                <i class="fas fa-check-circle"></i> I Have Paid - Submit
+            </button>
+        </div>
+    </div>
+
+    <!-- User Notification Modals -->
+    <div class="modal" id="pendingNotificationModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closePendingModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-clock"></i></div>
+            <h3>Payment Under Review</h3>
+            <p>There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction.</p>
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <i class="fas fa-spinner fa-pulse" style="color: #f59e0b;"></i>
+                <span style="margin-left: 10px;">Your order is pending review. You will receive an update shortly.</span>
+            </div>
+            <button class="confirm-btn" onclick="closePendingModal()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 20px;">
+                <i class="fas fa-check"></i> I Understand
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="declinedNotificationModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeDeclinedModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #ef4444;"><i class="fas fa-times-circle"></i></div>
+            <h3>Payment Declined</h3>
+            <p>Your payment has been declined.</p>
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <span style="margin-left: 10px;">We could not verify your payment. Please contact support for assistance or try again.</span>
+            </div>
+            <button class="confirm-btn" onclick="closeDeclinedModal()" style="background: linear-gradient(135deg, #ef4444, #dc2626); margin-top: 20px;">
+                <i class="fas fa-check"></i> OK
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="successNotificationModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeSuccessNotificationModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #10b981;"><i class="fas fa-check-circle"></i></div>
+            <h3>Payment Confirmed!</h3>
+            <p>Your payment has been confirmed and your data has been sent!</p>
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <i class="fas fa-database" style="color: #10b981;"></i>
+                <span style="margin-left: 10px;">Your data has been credited to your phone number.</span>
+            </div>
+            <button class="confirm-btn" onclick="closeSuccessNotificationModal()" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 20px;">
+                <i class="fas fa-check"></i> Great!
+            </button>
+        </div>
+    </div>
+
+    <!-- Free Data Claim Modal -->
+    <div class="modal" id="freeDataModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeFreeDataModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #10b981;"><i class="fas fa-gift"></i></div>
+            <h3>Congratulations! 🎉</h3>
+            <p>You've received <strong>100MB FREE DATA</strong> for being one of the first 20 people to sign up!</p>
+            <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <i class="fas fa-database" style="color: #10b981;"></i>
+                <span style="margin-left: 10px;">100MB has been added to your account!</span>
+            </div>
+            <button class="confirm-btn" onclick="closeFreeDataModal()" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 20px;">
+                <i class="fas fa-check"></i> Awesome!
+            </button>
+        </div>
+    </div>
+
+    <!-- Promo Ended Modal -->
+    <div class="modal" id="promoEndedModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closePromoEndedModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-gift"></i></div>
+            <h3>Promo Ended</h3>
+            <p>The 100MB free data promo has ended. The first 20 people have already claimed their reward!</p>
+            <div style="background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                <i class="fas fa-clock" style="color: #f59e0b;"></i>
+                <span style="margin-left: 10px;">Follow us for future promotions!</span>
+            </div>
+            <button class="confirm-btn" onclick="closePromoEndedModal()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 20px;">
+                <i class="fas fa-check"></i> OK
+            </button>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <footer class="footer">
+        <p>&copy; 2024 OnSlot. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // ============================================
+        // ADMIN PASSCODE
+        // ============================================
+        const ADMIN_PASSCODE = "12345";
+        let isAdminAuthenticated = false;
+
+        // ============================================
+        // REFERRAL & FREE DATA TRACKING
+        // ============================================
+        const MAX_FREE_SIGNUPS = 20;
+        let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+        let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
+
+        function updateFreeDataBanner() {
+            const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
+            const spotsLeftSpan = document.getElementById("spotsLeft");
+            const banner = document.getElementById("freeDataBanner");
+            
+            if (spotsLeftSpan) {
+                if (spotsLeft > 0) {
+                    spotsLeftSpan.textContent = `${spotsLeft} spots left`;
+                    banner.classList.remove("promo-ended");
+                } else {
+                    spotsLeftSpan.textContent = "Promo ended!";
+                    banner.classList.add("promo-ended");
+                }
+            }
+        }
+
+        // Generate new referral code after each referral
+        function generateNewReferralCode(oldCode) {
+            const random = Math.floor(Math.random() * 10000);
+            const prefix = oldCode.substring(0, 3);
+            return `${prefix}${random}`;
+        }
+
+        function generateReferralCode(name, email) {
+            const prefix = name.substring(0, 3).toUpperCase();
+            const random = Math.floor(Math.random() * 10000);
+            return `${prefix}${random}`;
+        }
+
+        function saveReferralRelationship(newUserEmail, referrerCode) {
+            if (!referrerCode) return null;
+            
+            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            const referrer = users.find(u => u.referralCode === referrerCode);
+            
+            if (referrer) {
+                const referrals = JSON.parse(localStorage.getItem("onslot_referrals") || "[]");
+                referrals.push({
+                    referrerEmail: referrer.email,
+                    referredEmail: newUserEmail,
+                    date: new Date().toISOString(),
+                    status: "completed"
+                });
+                localStorage.setItem("onslot_referrals", JSON.stringify(referrals));
+                
+                // Generate new referral code for referrer
+                const newCode = generateNewReferralCode(referrer.referralCode);
+                const userIndex = users.findIndex(u => u.email === referrer.email);
+                if (userIndex !== -1) {
+                    users[userIndex].referralCode = newCode;
+                    localStorage.setItem("onslot_users", JSON.stringify(users));
+                    
+                    // Update current user if they are the referrer
+                    if (currentUser && currentUser.email === referrer.email) {
+                        currentUser.referralCode = newCode;
+                        localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
+                        displayReferralInfo();
+                    }
+                }
+                
+                updateReferrerRewards(referrer.email);
+                return referrer.email;
+            }
+            return null;
+        }
+
+        function updateReferrerRewards(referrerEmail) {
+            const referrals = JSON.parse(localStorage.getItem("onslot_referrals") || "[]");
+            const completedReferrals = referrals.filter(r => r.referrerEmail === referrerEmail && r.status === "completed");
+            const referralCount = completedReferrals.length;
+            
+            let rewardMB = 0;
+            let neededReferrals = 5;
+            
+            if (referralCount >= 7) {
+                rewardMB = 1024;
+                neededReferrals = 10;
+            } else if (referralCount >= 5) {
+                rewardMB = 500;
+                neededReferrals = 7;
+            } else {
+                rewardMB = 0;
+                neededReferrals = 5 - referralCount;
+            }
+            
+            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            const userIndex = users.findIndex(u => u.email === referrerEmail);
+            if (userIndex !== -1) {
+                users[userIndex].referralCount = referralCount;
+                users[userIndex].referralRewardMB = rewardMB;
+                users[userIndex].referralsNeeded = neededReferrals > 0 ? neededReferrals : 0;
+                localStorage.setItem("onslot_users", JSON.stringify(users));
+                
+                if (currentUser && currentUser.email === referrerEmail) {
+                    currentUser.referralCount = referralCount;
+                    currentUser.referralRewardMB = rewardMB;
+                    currentUser.referralsNeeded = neededReferrals > 0 ? neededReferrals : 0;
+                    localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
+                    displayReferralInfo();
+                }
+            }
+        }
+
+        function displayReferralInfo() {
+            if (!currentUser) return;
+            
+            const referralCodeSpan = document.getElementById("userReferralCode");
+            const rewardEarnedSpan = document.getElementById("rewardEarned");
+            const referralsNeededSpan = document.getElementById("referralsNeeded");
+            
+            if (referralCodeSpan) {
+                referralCodeSpan.textContent = currentUser.referralCode || "N/A";
+            }
+            
+            const reward = currentUser.referralRewardMB || 0;
+            const needed = currentUser.referralsNeeded || 5;
+            
+            if (rewardEarnedSpan) {
+                if (reward >= 1024) {
+                    rewardEarnedSpan.textContent = `${reward/1024} GB`;
+                } else {
+                    rewardEarnedSpan.textContent = `${reward} MB`;
+                }
+            }
+            if (referralsNeededSpan) {
+                if (needed === 0) {
+                    referralsNeededSpan.textContent = "Reward Ready!";
+                } else {
+                    referralsNeededSpan.textContent = `${needed} referrals`;
+                }
+            }
+        }
+
+        function copyReferralCode() {
+            const code = document.getElementById("userReferralCode").textContent;
+            navigator.clipboard.writeText(code);
+            showToast("Referral code copied! Share with friends.", "success");
+        }
+
+        function shareOnWhatsApp() {
+            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${currentUser.referralCode} to sign up! 🚀\n\nSign up here: ${window.location.href}`);
+            window.open(`https://wa.me/?text=${text}`, "_blank");
+        }
+
+        function shareOnFacebook() {
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
+        }
+
+        function shareOnTwitter() {
+            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${currentUser.referralCode} to sign up! 🚀`);
+            window.open(`https://twitter.com/intent/tweet?text=${text}`, "_blank");
+        }
+
+        function shareOnTelegram() {
+            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${currentUser.referralCode} to sign up! 🚀\n\nSign up here: ${window.location.href}`);
+            window.open(`https://t.me/share/url?url=${window.location.href}&text=${text}`, "_blank");
+        }
+
+        function shareOnSnapchat() {
+            const url = encodeURIComponent(window.location.href);
+            window.open(`https://www.snapchat.com/share?url=${url}`, "_blank");
+        }
+
+        // ============================================
+        // VTU.ng API CONFIGURATION
+        // !!! REPLACE WITH YOUR VTU.NG CREDENTIALS !!!
+        // ============================================
+        const VTU_NG_CONFIG = {
+            USERNAME: "YOUR_VTU_NG_USERNAME",
+            PASSWORD: "YOUR_VTU_NG_PASSWORD",
+            BASE_URL: "https://vtu.ng/wp-json/api/v1/data",
+            VARIATION_IDS: {
+                mtn: {
+                    200: "M200",
+                    300: "M300",
+                    700: "M700",
+                    1024: "M1024"
+                },
+                airtel: {
+                    200: "A200",
+                    300: "A300",
+                    700: "A700",
+                    1024: "A1024"
+                },
+                glo: {
+                    200: "G200",
+                    300: "G300",
+                    700: "G700",
+                    1024: "G1024"
+                }
+            }
+        };
+
+        let currentUser = null;
+        let pendingOrders = [];
+        let activeNetwork = null;
+        let selectedData = {};
+
+        // ============================================
+        // NETWORK CARD FUNCTIONS
+        // ============================================
+        
+        function toggleNetwork(network) {
+            const networkCard = document.querySelector(`.network-card.${network}`);
+            const isExpanded = networkCard.classList.contains('expanded');
+            
+            document.querySelectorAll('.network-card').forEach(card => {
+                card.classList.remove('expanded');
+            });
+            
+            if (!isExpanded) {
+                networkCard.classList.add('expanded');
+                activeNetwork = network;
+                attachNetworkEvents(network);
+            } else {
+                activeNetwork = null;
+            }
+        }
+        
+        function attachNetworkEvents(network) {
+            const networkCard = document.querySelector(`.network-card.${network}`);
+            if (!networkCard) return;
+            
+            const phoneInput = networkCard.querySelector('.network-phone');
+            const buyBtn = networkCard.querySelector('.network-buy-btn');
+            const planCards = networkCard.querySelectorAll('.plan-card');
+            
+            if (!selectedData[network]) {
+                selectedData[network] = { plan: null, phone: "" };
+            }
+            
+            planCards.forEach(card => card.classList.remove('selected'));
+            
+            phoneInput.oninput = (e) => {
+                selectedData[network].phone = e.target.value;
+                const isValid = isValidPhone(selectedData[network].phone);
+                buyBtn.disabled = !(isValid && selectedData[network].plan);
+            };
+            
+            planCards.forEach(card => {
+                card.onclick = () => {
+                    planCards.forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    
+                    selectedData[network].plan = {
+                        mb: parseInt(card.dataset.mb),
+                        price: parseInt(card.dataset.price),
+                        network: network
+                    };
+                    
+                    const isValid = isValidPhone(selectedData[network].phone);
+                    buyBtn.disabled = !(isValid && selectedData[network].plan);
+                };
+            });
+            
+            buyBtn.onclick = () => processPurchase(network);
+        }
+        
+        // ============================================
+        // VTU.ng API FUNCTION
+        // ============================================
+        
+        async function sendDataViaVTUng(phoneNumber, network, planMB) {
+            const variationId = VTU_NG_CONFIG.VARIATION_IDS[network]?.[planMB];
+            
+            if (!variationId) {
+                throw new Error(`No variation ID found for ${planMB}MB on ${network}`);
+            }
+            
+            const url = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${phoneNumber}&network_id=${network}&variation_id=${variationId}`;
+            
+            console.log(`Sending request to VTU.ng for ${network} ${planMB}MB to ${phoneNumber}`);
+            
+            try {
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+                
+                const result = await response.json();
+                console.log("VTU.ng API Response:", result);
+                
+                if (result.code === "success") {
+                    return {
+                        success: true,
+                        reference: result.data?.request_id || Date.now().toString(),
+                        message: result.message || "Data delivered successfully"
+                    };
+                } else {
+                    return {
+                        success: false,
+                        message: result.message || "Delivery failed. Please check your wallet balance."
+                    };
+                }
+            } catch (error) {
+                console.error("VTU.ng API Error:", error);
+                return {
+                    success: false,
+                    message: "Network error. Please try again."
+                };
+            }
+        }
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        
+        function showLogin() {
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("signupForm").style.display = "none";
+        }
+
+        function showSignup() {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("signupForm").style.display = "block";
+        }
+
+        function signup() {
+            const name = document.getElementById("signupName").value;
+            const email = document.getElementById("signupEmail").value;
+            const phone = document.getElementById("signupPhone").value;
+            const password = document.getElementById("signupPassword").value;
+            const referralCode = document.getElementById("referralCodeInput").value;
+
+            if (!name || !email || !phone || !password) {
+                showToast("Please fill all fields", "error");
+                return;
+            }
+
+            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            if (users.find(u => u.email === email)) {
+                showToast("Email already registered", "error");
+                return;
+            }
+
+            const newReferralCode = generateReferralCode(name, email);
+            
+            let gotFreeData = false;
+            let freeDataMessage = "";
+            
+            if (freeSignupCount < MAX_FREE_SIGNUPS && !freeSignupUsers.includes(email)) {
+                gotFreeData = true;
+                freeSignupCount++;
+                freeSignupUsers.push(email);
+                localStorage.setItem("onslot_free_signup_count", freeSignupCount);
+                localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
+                freeDataMessage = "You've received 100MB FREE data!";
+            }
+            
+            if (referralCode) {
+                saveReferralRelationship(email, referralCode);
+            }
+            
+            const newUser = { 
+                name, email, phone, password, 
+                purchases: [],
+                referralCode: newReferralCode,
+                referralCount: 0,
+                referralRewardMB: 0,
+                referralsNeeded: 5,
+                gotFreeData: gotFreeData,
+                freeDataClaimed: gotFreeData
+            };
+            
+            users.push(newUser);
+            localStorage.setItem("onslot_users", JSON.stringify(users));
+            
+            showToast("Account created! Please login", "success");
+            
+            if (gotFreeData) {
+                setTimeout(() => {
+                    showToast(`🎉 ${freeDataMessage}`, "success");
+                }, 1000);
+            } else if (freeSignupCount >= MAX_FREE_SIGNUPS) {
+                setTimeout(() => {
+                    showToast("Promo ended! The first 20 people have already claimed their free data.", "warning");
+                }, 1000);
+            }
+            
+            showLogin();
+            
+            document.getElementById("signupName").value = "";
+            document.getElementById("signupEmail").value = "";
+            document.getElementById("signupPhone").value = "";
+            document.getElementById("signupPassword").value = "";
+            document.getElementById("referralCodeInput").value = "";
+            updateFreeDataBanner();
+        }
+
+        function login() {
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            if (!email || !password) {
+                showToast("Please enter email and password", "error");
+                return;
+            }
+
+            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            const user = users.find(u => u.email === email && u.password === password);
+
+            if (user) {
+                currentUser = user;
+                localStorage.setItem("onslot_current_user", JSON.stringify(user));
+                showToast("Login successful!", "success");
+                loadDashboard();
+                
+                if (user.gotFreeData && !user.freeDataModalShown) {
+                    setTimeout(() => {
+                        document.getElementById("freeDataModal").style.display = "flex";
+                        const usersUpdate = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+                        const idx = usersUpdate.findIndex(u => u.email === email);
+                        if (idx !== -1) {
+                            usersUpdate[idx].freeDataModalShown = true;
+                            localStorage.setItem("onslot_users", JSON.stringify(usersUpdate));
+                            currentUser.freeDataModalShown = true;
+                            localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
+                        }
+                    }, 500);
+                } else if (freeSignupCount >= MAX_FREE_SIGNUPS && !user.promoEndedShown) {
+                    setTimeout(() => {
+                        document.getElementById("promoEndedModal").style.display = "flex";
+                        const usersUpdate = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+                        const idx = usersUpdate.findIndex(u => u.email === email);
+                        if (idx !== -1) {
+                            usersUpdate[idx].promoEndedShown = true;
+                            localStorage.setItem("onslot_users", JSON.stringify(usersUpdate));
+                            currentUser.promoEndedShown = true;
+                            localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
+                        }
+                    }, 500);
+                }
+            } else {
+                showToast("Invalid email or password", "error");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("onslot_current_user");
+            currentUser = null;
+            isAdminAuthenticated = false;
+            document.getElementById("authSection").style.display = "flex";
+            document.getElementById("dashboardContent").style.display = "none";
+            document.getElementById("userInfo").style.display = "none";
+            document.getElementById("adminPanel").style.display = "none";
+            showLogin();
+        }
+
+        function loadDashboard() {
+            const savedUser = localStorage.getItem("onslot_current_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById("authSection").style.display = "none";
+                document.getElementById("dashboardContent").style.display = "block";
+                document.getElementById("userInfo").style.display = "flex";
+                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
+                loadPendingOrders();
+                checkUserNotifications();
+                displayReferralInfo();
+                updateFreeDataBanner();
+            }
+        }
+
+        // ============================================
+        // NOTIFICATION BADGE FUNCTIONS
+        // ============================================
+        
+        function updateNotificationBadges() {
+            const pendingCount = pendingOrders.filter(order => order.status === "pending").length;
+            
+            const adminBadge = document.getElementById("adminNotificationBadge");
+            if (adminBadge) {
+                if (pendingCount > 0) {
+                    adminBadge.style.display = "inline-block";
+                    adminBadge.textContent = pendingCount > 99 ? "99+" : pendingCount;
+                } else {
+                    adminBadge.style.display = "none";
+                }
+            }
+            
+            const orderCountBadge = document.getElementById("orderCountBadge");
+            if (orderCountBadge) {
+                if (pendingCount > 0) {
+                    orderCountBadge.style.display = "inline-block";
+                    orderCountBadge.textContent = pendingCount > 99 ? "99+" : pendingCount;
+                } else {
+                    orderCountBadge.style.display = "none";
+                }
+            }
+        }
+
+        // ============================================
+        // ADMIN FUNCTIONS
+        // ============================================
+        
+        function showAdminPasscodeModal() {
+            document.getElementById("adminPasscodeModal").style.display = "flex";
+            document.getElementById("adminPasscode").value = "";
+        }
+
+        function closeAdminPasscodeModal() {
+            document.getElementById("adminPasscodeModal").style.display = "none";
+        }
+
+        function verifyAdminPasscode() {
+            const enteredCode = document.getElementById("adminPasscode").value;
+            if (enteredCode === ADMIN_PASSCODE) {
+                isAdminAuthenticated = true;
+                closeAdminPasscodeModal();
+                showAdminPanel();
+                showToast("Admin access granted!", "success");
+            } else {
+                showToast("Invalid passcode! Access denied.", "error");
+                closeAdminPasscodeModal();
+            }
+        }
+
+        function showAdminPanel() {
+            if (!isAdminAuthenticated) {
+                showAdminPasscodeModal();
+                return;
+            }
+            document.getElementById("adminPanel").style.display = "block";
+            loadPendingOrders();
+        }
+
+        function toggleAdminPanel() {
+            const content = document.getElementById("adminContent");
+            const chevron = document.getElementById("adminChevron");
+            if (content.classList.contains("show")) {
+                content.classList.remove("show");
+                chevron.style.transform = "rotate(0deg)";
+            } else {
+                content.classList.add("show");
+                chevron.style.transform = "rotate(180deg)";
+            }
+        }
+
+        // ============================================
+        // PENDING ORDERS MANAGEMENT
+        // ============================================
+        
+        function loadPendingOrders() {
+            const saved = localStorage.getItem("onslot_pending_orders");
+            if (saved) pendingOrders = JSON.parse(saved);
+            renderPendingOrders();
+            updateNotificationBadges();
+        }
+
+        function savePendingOrders() {
+            localStorage.setItem("onslot_pending_orders", JSON.stringify(pendingOrders));
+            renderPendingOrders();
+            updateNotificationBadges();
+        }
+
+        function renderPendingOrders() {
+            const container = document.getElementById("pendingOrdersList");
+            if (!container) return;
+            
+            if (pendingOrders.length === 0) {
+                container.innerHTML = '<div class="empty-orders">No pending orders</div>';
+                return;
+            }
+            
+            container.innerHTML = pendingOrders.map((order, index) => {
+                let statusClass = "";
+                let statusText = "";
+                if (order.status === "pending") { statusClass = "status-pending"; statusText = "Pending Verification"; }
+                else if (order.status === "processing") { statusClass = "status-processing"; statusText = "Processing..."; }
+                else if (order.status === "declined") { statusClass = "status-declined"; statusText = "Declined"; }
+                else if (order.status === "completed") { statusClass = "status-completed"; statusText = "Completed"; }
+                
+                return `
+                    <div class="pending-order" data-index="${index}">
+                        <div class="order-details">
+                            <p><strong>👤 Customer:</strong> ${order.customerName}</p>
+                            <p><strong>📱 Phone:</strong> ${order.phone}</p>
+                            <p><strong>📦 Plan:</strong> ${order.plan}MB - ₦${order.amount}</p>
+                            <p><strong>🌐 Network:</strong> ${order.network.toUpperCase()}</p>
+                            <p><strong>💰 Transaction Ref:</strong> ${order.transactionRef}</p>
+                            <p><strong>⏰ Time:</strong> ${order.timestamp}</p>
+                            <p><span class="order-status ${statusClass}">${statusText}</span></p>
+                        </div>
+                        <div class="order-actions">
+                            <button class="accept-btn" onclick="acceptOrder(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
+                                <i class="fas fa-check-circle"></i> Accept
+                            </button>
+                            <button class="pending-btn" onclick="markAsPending(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
+                                <i class="fas fa-clock"></i> Pending
+                            </button>
+                            <button class="decline-btn" onclick="declineOrder(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
+                                <i class="fas fa-times-circle"></i> Decline
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        async function acceptOrder(index) {
+            const order = pendingOrders[index];
+            if (!order || order.status !== "pending") return;
+            
+            order.status = "processing";
+            savePendingOrders();
+            
+            const acceptBtn = document.querySelector(`.pending-order[data-index="${index}"] .accept-btn`);
+            if (acceptBtn) {
+                acceptBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending...';
+                acceptBtn.disabled = true;
+            }
+            
+            try {
+                const result = await sendDataViaVTUng(order.phone, order.network, order.plan);
+                
+                if (result.success) {
+                    order.status = "completed";
+                    savePendingOrders();
+                    showToast(`✅ ${order.plan}MB ${order.network.toUpperCase()} data sent to ${order.phone}!`, "success");
+                    notifyUser(order.userEmail, "success", order.plan, order.phone);
+                } else {
+                    order.status = "pending";
+                    savePendingOrders();
+                    showToast(`❌ Failed: ${result.message}. Order still pending.`, "error");
+                }
+            } catch (error) {
+                order.status = "pending";
+                savePendingOrders();
+                showToast("Error sending data. Please try again.", "error");
+            }
+        }
+
+        function markAsPending(index) {
+            const order = pendingOrders[index];
+            if (!order || order.status !== "pending") return;
+            
+            notifyUser(order.userEmail, "pending", order.plan, order.phone);
+            showToast(`Pending notification sent to ${order.customerName}`, "warning");
+        }
+
+        function declineOrder(index) {
+            const order = pendingOrders[index];
+            if (!order || order.status !== "pending") return;
+            
+            if (confirm(`Decline order for ${order.customerName}? This will notify them that payment was declined.`)) {
+                order.status = "declined";
+                savePendingOrders();
+                notifyUser(order.userEmail, "declined", order.plan, order.phone);
+                showToast(`Order declined. Notification sent to ${order.customerName}`, "error");
+            }
+        }
+
+        function notifyUser(userEmail, type, plan, phone) {
+            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
+            notifications.unshift({
+                id: Date.now(),
+                userEmail: userEmail,
+                type: type,
+                plan: plan,
+                phone: phone,
+                message: type === "success" ? "Your payment has been confirmed and data has been sent!" :
+                          type === "pending" ? "There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction." :
+                          "Your payment has been declined. Please contact support for assistance.",
+                read: false,
+                timestamp: new Date().toLocaleString()
+            });
+            localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
+            
+            if (currentUser && currentUser.email === userEmail) {
+                if (type === "pending") {
+                    document.getElementById("pendingNotificationModal").style.display = "flex";
+                } else if (type === "declined") {
+                    document.getElementById("declinedNotificationModal").style.display = "flex";
+                } else if (type === "success") {
+                    document.getElementById("successNotificationModal").style.display = "flex";
+                }
+            }
+        }
+
+        function checkUserNotifications() {
+            if (!currentUser) return;
+            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
+            const userNotifications = notifications.filter(n => n.userEmail === currentUser.email && !n.read);
+            
+            if (userNotifications.length > 0) {
+                const latest = userNotifications[0];
+                if (latest.type === "pending") {
+                    document.getElementById("pendingNotificationModal").style.display = "flex";
+                } else if (latest.type === "declined") {
+                    document.getElementById("declinedNotificationModal").style.display = "flex";
+                } else if (latest.type === "success") {
+                    document.getElementById("successNotificationModal").style.display = "flex";
+                }
+                latest.read = true;
+                localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
+            }
+        }
+
+        // ============================================
+        // PURCHASE PROCESS
+        // ============================================
+        
+        function processPurchase(network) {
+            const data = selectedData[network];
+            if (!data || !data.plan || !data.phone) {
+                showToast("Please select a plan and enter your phone number", "error");
+                return;
+            }
+            
+            if (!isValidPhone(data.phone)) {
+                showToast("Please enter a valid phone number", "error");
+                return;
+            }
+            
+            window.currentPurchase = {
+                network: network,
+                plan: data.plan,
+                phone: data.phone
+            };
+            
+            document.getElementById("payAmount").textContent = data.plan.price;
+            document.getElementById("paymentModal").style.display = "flex";
+        }
+
+        function submitPaymentConfirmation() {
+            const transactionRef = document.getElementById("transactionRef").value;
+            const senderName = document.getElementById("senderName").value;
+
+            if (!transactionRef || !senderName) {
+                showToast("Please enter transaction reference and your name", "error");
+                return;
+            }
+            
+            if (!window.currentPurchase) {
+                showToast("No purchase in progress", "error");
+                return;
+            }
+            
+            const purchase = window.currentPurchase;
+            
+            const newOrder = {
+                id: Date.now(),
+                customerName: senderName,
+                userEmail: currentUser.email,
+                phone: purchase.phone,
+                network: purchase.network,
+                plan: purchase.plan.mb,
+                amount: purchase.plan.price,
+                transactionRef: transactionRef,
+                timestamp: new Date().toLocaleString(),
+                status: "pending"
+            };
+            
+            pendingOrders.unshift(newOrder);
+            savePendingOrders();
+            
+            closePaymentModal();
+            showToast("Payment submitted! Admin will verify your payment.", "success");
+            
+            const networkCard = document.querySelector(`.network-card.${purchase.network}`);
+            if (networkCard) {
+                const phoneInput = networkCard.querySelector('.network-phone');
+                const buyBtn = networkCard.querySelector('.network-buy-btn');
+                const selectedPlanCard = networkCard.querySelector('.plan-card.selected');
+                
+                if (phoneInput) phoneInput.value = "";
+                if (selectedPlanCard) selectedPlanCard.classList.remove('selected');
+                if (buyBtn) buyBtn.disabled = true;
+            }
+            
+            selectedData[purchase.network] = { plan: null, phone: "" };
+            window.currentPurchase = null;
+        }
+
+        // ============================================
+        // MODAL FUNCTIONS
+        // ============================================
+        
+        function closeFreeDataModal() {
+            document.getElementById("freeDataModal").style.display = "none";
+        }
+
+        function closePromoEndedModal() {
+            document.getElementById("promoEndedModal").style.display = "none";
+        }
+
+        // ============================================
+        // UTILITIES
+        // ============================================
+
+        function isValidPhone(phone) {
+            if (!phone) return false;
+            const clean = phone.replace(/\s/g, '');
+            return /^(0[7-9][0-1]{1}[0-9]{8})$/.test(clean) || /^(234[7-9][0-1]{1}[0-9]{8})$/.test(clean);
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toastContainer");
+            const toast = document.createElement("div");
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = "fadeOut 0.3s ease";
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function copyAccount() {
+            navigator.clipboard.writeText("9012345678");
+            showToast("Account number copied!", "success");
+        }
+
+        function closePaymentModal() {
+            document.getElementById("paymentModal").style.display = "none";
+            document.getElementById("transactionRef").value = "";
+            document.getElementById("senderName").value = "";
+        }
+
+        function closePendingModal() {
+            document.getElementById("pendingNotificationModal").style.display = "none";
+        }
+
+        function closeDeclinedModal() {
+            document.getElementById("declinedNotificationModal").style.display = "none";
+        }
+
+        function closeSuccessNotificationModal() {
+            document.getElementById("successNotificationModal").style.display = "none";
+        }
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            loadDashboard();
+            updateFreeDataBanner();
+        });
+    </script>
 </body>
 </html>
