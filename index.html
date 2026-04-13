@@ -811,6 +811,180 @@
             color: #94a3b8;
         }
 
+        /* Enhanced Payment Modal Styles */
+        .payment-methods {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .payment-method {
+            flex: 1;
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .payment-method:hover {
+            background: rgba(30, 41, 59, 0.8);
+        }
+        
+        .payment-method.selected {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+        }
+        
+        .payment-method i {
+            font-size: 24px;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .payment-method span {
+            font-size: 0.8rem;
+        }
+        
+        .bank-search {
+            position: relative;
+            margin-bottom: 15px;
+        }
+        
+        .bank-search input {
+            width: 100%;
+            padding: 14px 16px 14px 45px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        
+        .bank-search input:focus {
+            border-color: #f59e0b;
+        }
+        
+        .bank-search i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
+        
+        .bank-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            background: rgba(30, 41, 59, 0.4);
+            border-radius: 12px;
+        }
+        
+        .bank-option {
+            padding: 12px 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .bank-option:hover {
+            background: rgba(245, 158, 11, 0.15);
+        }
+        
+        .bank-option.selected {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .receipt-upload {
+            margin: 15px 0;
+        }
+        
+        .upload-area {
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .upload-area:hover {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+        
+        .upload-area i {
+            font-size: 32px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        
+        .upload-area p {
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+        
+        .receipt-preview {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 12px;
+            padding: 10px;
+        }
+        
+        .receipt-preview img {
+            width: 50px;
+            height: 50px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+        
+        .receipt-preview span {
+            font-size: 0.8rem;
+            color: #10b981;
+        }
+        
+        .remove-receipt {
+            background: rgba(239, 68, 68, 0.2);
+            border: none;
+            padding: 5px 10px;
+            border-radius: 20px;
+            color: #ef4444;
+            cursor: pointer;
+        }
+        
+        .selected-bank-display {
+            background: rgba(245, 158, 11, 0.1);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.8rem;
+            color: #f59e0b;
+        }
+        
+        .custom-bank-input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: white;
+            margin-top: 10px;
+            outline: none;
+        }
+        
+        .custom-bank-input:focus {
+            border-color: #f59e0b;
+        }
+
         /* Modals */
         .modal {
             display: none;
@@ -828,8 +1002,10 @@
 
         .modal-content {
             position: relative;
-            max-width: 450px;
+            max-width: 500px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             background: rgba(15, 25, 35, 0.95);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -913,6 +1089,10 @@
             outline: none;
         }
 
+        .confirm-input:focus {
+            border-color: #f59e0b;
+        }
+
         .confirm-btn {
             background: linear-gradient(135deg, #10b981, #059669);
             border: none;
@@ -987,6 +1167,9 @@
                 justify-content: center;
             }
             .share-buttons {
+                flex-direction: column;
+            }
+            .payment-methods {
                 flex-direction: column;
             }
         }
@@ -1307,21 +1490,65 @@
         </div>
     </div>
 
+    <!-- Enhanced Payment Modal -->
     <div class="modal" id="paymentModal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 500px;">
             <button class="modal-close" onclick="closePaymentModal()"><i class="fas fa-times"></i></button>
             <div class="modal-icon"><i class="fas fa-money-bill-wave"></i></div>
             <h3>Complete Your Payment</h3>
             <p>Send <strong>₦<span id="payAmount">0</span></strong> to this account</p>
+            
             <div class="bank-details">
                 <p><strong>Bank:</strong> Moniepoint MFB</p>
                 <p><strong>Account Name:</strong> Sunday Ijeoma Anastasia</p>
                 <p><strong>Account Number:</strong> 9066051034</p>
                 <button class="copy-btn" onclick="copyAccount()">📋 Copy Account Number</button>
             </div>
+
+            <!-- Payment Method Selection -->
+            <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Payment Method:</p>
+            <div class="payment-methods">
+                <div class="payment-method" data-method="transfer" onclick="selectPaymentMethod('transfer')">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span>Bank Transfer</span>
+                </div>
+                <div class="payment-method" data-method="ussd" onclick="selectPaymentMethod('ussd')">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>USSD Transfer</span>
+                </div>
+            </div>
+
+            <!-- Bank Selection Section -->
+            <div id="bankSelectionSection">
+                <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Select Your Bank:</p>
+                <div class="bank-search">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="bankSearchInput" placeholder="Search for your bank..." onkeyup="filterBanks()">
+                </div>
+                <div class="bank-list" id="bankList"></div>
+                <div class="selected-bank-display" id="selectedBankDisplay" style="display: none;">
+                    <i class="fas fa-check-circle"></i> Selected: <span id="selectedBankName">None</span>
+                </div>
+                <input type="text" id="customBankInput" class="custom-bank-input" placeholder="Or type your bank name here" style="display: none;">
+            </div>
+
+            <!-- Receipt Upload Section -->
+            <div class="receipt-upload">
+                <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Upload Receipt/Screenshot (Optional):</p>
+                <div class="upload-area" onclick="document.getElementById('receiptInput').click()">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Click to upload receipt or screenshot</p>
+                    <p style="font-size: 0.7rem;">PNG, JPG, PDF (Max 5MB)</p>
+                </div>
+                <input type="file" id="receiptInput" accept="image/*,.pdf" style="display: none;" onchange="handleReceiptUpload(event)">
+                <div id="receiptPreview" style="display: none;"></div>
+            </div>
+
             <p style="font-size: 0.8rem; margin-bottom: 10px;">After payment, enter your transaction details below:</p>
+            
             <input type="text" id="transactionRef" class="confirm-input" placeholder="Transaction reference / Amount sent">
             <input type="text" id="senderName" class="confirm-input" placeholder="Your name as on bank transfer">
+            
             <button class="confirm-btn" onclick="submitPaymentConfirmation()">
                 <i class="fas fa-check-circle"></i> I Have Paid - Submit
             </button>
@@ -1410,6 +1637,127 @@
         // ============================================
         const ADMIN_PASSCODE = "12345";
         let isAdminAuthenticated = false;
+
+        // ============================================
+        // BANK LIST (All Nigerian Banks)
+        // ============================================
+        const NIGERIAN_BANKS = [
+            "Access Bank", "Access Bank (Diamond)", "ALAT by Wema", "Citibank Nigeria", 
+            "Ecobank Nigeria", "Enterprise Bank", "Fidelity Bank", "First Bank of Nigeria", 
+            "First City Monument Bank (FCMB)", "Globus Bank", "Guaranty Trust Bank (GTB)", 
+            "Heritage Bank", "Jaiz Bank", "Keystone Bank", "Kuda Bank", "Moniepoint Microfinance Bank",
+            "Optimus Bank", "PalmPay", "Parallex Bank", "Polaris Bank", "Premium Trust Bank", 
+            "Providus Bank", "Rubies Bank", "Sparkle Bank", "Stanbic IBTC Bank", 
+            "Standard Chartered Bank", "Sterling Bank", "SunTrust Bank", "Taj Bank", 
+            "Titan Trust Bank", "Union Bank of Nigeria", "United Bank for Africa (UBA)", 
+            "Unity Bank", "VFD Microfinance Bank", "Wema Bank", "Zenith Bank"
+        ];
+
+        let selectedPaymentMethod = "transfer";
+        let selectedBank = "";
+        let uploadedReceipt = null;
+        let uploadedReceiptData = null;
+
+        // ============================================
+        // PAYMENT MODAL FUNCTIONS
+        // ============================================
+        
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            document.querySelectorAll('.payment-method').forEach(el => {
+                el.classList.remove('selected');
+            });
+            document.querySelector(`.payment-method[data-method="${method}"]`).classList.add('selected');
+        }
+
+        function renderBankList(filterText = "") {
+            const bankList = document.getElementById("bankList");
+            if (!bankList) return;
+            
+            const filteredBanks = NIGERIAN_BANKS.filter(bank => 
+                bank.toLowerCase().includes(filterText.toLowerCase())
+            );
+            
+            if (filteredBanks.length === 0) {
+                bankList.innerHTML = '<div style="padding: 20px; text-align: center; color: #94a3b8;">No banks found. Type your bank name manually.</div>';
+                document.getElementById("customBankInput").style.display = "block";
+                return;
+            }
+            
+            document.getElementById("customBankInput").style.display = "none";
+            bankList.innerHTML = filteredBanks.map(bank => `
+                <div class="bank-option" onclick="selectBank('${bank.replace(/'/g, "\\'")}')">
+                    ${bank}
+                </div>
+            `).join("");
+        }
+
+        function filterBanks() {
+            const searchTerm = document.getElementById("bankSearchInput").value;
+            renderBankList(searchTerm);
+        }
+
+        function selectBank(bankName) {
+            selectedBank = bankName;
+            document.getElementById("selectedBankName").textContent = bankName;
+            document.getElementById("selectedBankDisplay").style.display = "block";
+            document.getElementById("customBankInput").value = bankName;
+            
+            // Highlight selected bank in list
+            document.querySelectorAll('.bank-option').forEach(opt => {
+                opt.classList.remove('selected');
+                if (opt.textContent === bankName) {
+                    opt.classList.add('selected');
+                }
+            });
+        }
+
+        function handleReceiptUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (file.size > 5 * 1024 * 1024) {
+                showToast("File too large! Max 5MB.", "error");
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedReceiptData = e.target.result;
+                uploadedReceipt = file;
+                
+                const previewDiv = document.getElementById("receiptPreview");
+                const fileType = file.type;
+                
+                if (fileType.startsWith("image/")) {
+                    previewDiv.innerHTML = `
+                        <div class="receipt-preview">
+                            <img src="${e.target.result}" alt="Receipt">
+                            <span>${file.name}</span>
+                            <button class="remove-receipt" onclick="removeReceipt()">Remove</button>
+                        </div>
+                    `;
+                } else {
+                    previewDiv.innerHTML = `
+                        <div class="receipt-preview">
+                            <i class="fas fa-file-pdf" style="font-size: 40px; color: #ef4444;"></i>
+                            <span>${file.name}</span>
+                            <button class="remove-receipt" onclick="removeReceipt()">Remove</button>
+                        </div>
+                    `;
+                }
+                previewDiv.style.display = "block";
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeReceipt() {
+            uploadedReceipt = null;
+            uploadedReceiptData = null;
+            document.getElementById("receiptInput").value = "";
+            document.getElementById("receiptPreview").style.display = "none";
+            document.getElementById("receiptPreview").innerHTML = "";
+        }
 
         // ============================================
         // REFERRAL & FREE DATA TRACKING
@@ -1937,6 +2285,7 @@
                 checkUserNotifications();
                 displayReferralInfo();
                 updateFreeDataBanner();
+                renderBankList("");
             }
         }
 
@@ -2034,6 +2383,17 @@
                 else if (order.status === "declined") { statusClass = "status-declined"; statusText = "Declined"; }
                 else if (order.status === "completed") { statusClass = "status-completed"; statusText = "Completed"; }
                 
+                let receiptHtml = "";
+                if (order.receiptImage) {
+                    receiptHtml = `<p><strong>📎 Receipt:</strong> <a href="${order.receiptImage}" target="_blank" style="color: #f59e0b;">View Receipt</a></p>`;
+                }
+                if (order.bankName) {
+                    receiptHtml += `<p><strong>🏦 Bank:</strong> ${order.bankName}</p>`;
+                }
+                if (order.paymentMethod) {
+                    receiptHtml += `<p><strong>📱 Payment Method:</strong> ${order.paymentMethod === "transfer" ? "Bank Transfer" : "USSD Transfer"}</p>`;
+                }
+                
                 return `
                     <div class="pending-order" data-index="${index}">
                         <div class="order-details">
@@ -2043,6 +2403,7 @@
                             <p><strong>🌐 Network:</strong> ${order.network.toUpperCase()}</p>
                             <p><strong>💰 Transaction Ref:</strong> ${order.transactionRef}</p>
                             <p><strong>⏰ Time:</strong> ${order.timestamp}</p>
+                            ${receiptHtml}
                             <p><span class="order-status ${statusClass}">${statusText}</span></p>
                         </div>
                         <div class="order-actions">
@@ -2163,11 +2524,19 @@
         function submitPaymentConfirmation() {
             const transactionRef = document.getElementById("transactionRef").value;
             const senderName = document.getElementById("senderName").value;
+            const customBank = document.getElementById("customBankInput").value;
+            const bankName = selectedBank || customBank;
 
             if (!transactionRef || !senderName) {
                 showToast("Please enter transaction reference and your name", "error");
                 return;
             }
+            
+            if (!bankName) {
+                showToast("Please select or enter your bank name", "error");
+                return;
+            }
+            
             if (!window.currentPurchase) {
                 showToast("No purchase in progress", "error");
                 return;
@@ -2178,13 +2547,25 @@
                 id: Date.now(), customerName: senderName, userEmail: currentUser.email,
                 phone: purchase.phone, network: purchase.network, plan: purchase.plan.mb,
                 amount: purchase.plan.price, transactionRef: transactionRef,
-                timestamp: new Date().toLocaleString(), status: "pending"
+                timestamp: new Date().toLocaleString(), status: "pending",
+                paymentMethod: selectedPaymentMethod,
+                bankName: bankName,
+                receiptImage: uploadedReceiptData || null
             };
             
             pendingOrders.unshift(newOrder);
             savePendingOrders();
             closePaymentModal();
             showToast("Payment submitted! Admin will verify your payment.", "success");
+            
+            // Reset payment modal fields
+            removeReceipt();
+            selectedBank = "";
+            document.getElementById("selectedBankDisplay").style.display = "none";
+            document.getElementById("bankSearchInput").value = "";
+            document.getElementById("customBankInput").value = "";
+            renderBankList("");
+            selectPaymentMethod("transfer");
             
             const networkCard = document.querySelector(`.network-card.${purchase.network}`);
             if (networkCard) {
