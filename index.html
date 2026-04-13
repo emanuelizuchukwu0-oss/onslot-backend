@@ -240,6 +240,199 @@
             margin-bottom: 12px;
         }
 
+        /* Auth Forms */
+        .auth-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            display: flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 60px;
+            padding: 4px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s;
+            margin-bottom: 16px;
+        }
+
+        .input-group:focus-within {
+            border-color: #f59e0b;
+        }
+
+        .input-group i {
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 18px 16px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .buy-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: none;
+            padding: 18px;
+            border-radius: 60px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .buy-btn:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        .auth-switch {
+            margin-top: 20px;
+            color: #94a3b8;
+        }
+
+        .auth-switch a {
+            color: #f59e0b;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Network Cards */
+        .networks-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        .network-card {
+            background: rgba(15, 25, 35, 0.6);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .network-card.mtn:hover { border-color: rgba(245, 158, 11, 0.5); }
+        .network-card.airtel:hover { border-color: rgba(239, 68, 68, 0.5); }
+        .network-card.glo:hover { border-color: rgba(16, 185, 129, 0.5); }
+
+        .network-card.expanded { border-width: 2px; }
+        .network-card.mtn.expanded { border-color: #f59e0b; box-shadow: 0 0 25px rgba(245, 158, 11, 0.2); }
+        .network-card.airtel.expanded { border-color: #ef4444; box-shadow: 0 0 25px rgba(239, 68, 68, 0.2); }
+        .network-card.glo.expanded { border-color: #10b981; box-shadow: 0 0 25px rgba(16, 185, 129, 0.2); }
+
+        .network-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            transition: all 0.2s;
+        }
+
+        .network-header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .network-icon {
+            width: 55px;
+            height: 55px;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .network-card.mtn .network-icon { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+        .network-card.airtel .network-icon { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+        .network-card.glo .network-icon { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+
+        .network-info h3 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .network-card.mtn .network-info h3 { color: #f59e0b; }
+        .network-card.airtel .network-info h3 { color: #ef4444; }
+        .network-card.glo .network-info h3 { color: #10b981; }
+
+        .network-info p {
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .network-arrow {
+            color: #94a3b8;
+            transition: transform 0.3s ease;
+            font-size: 1.2rem;
+        }
+
+        .network-card.expanded .network-arrow {
+            transform: rotate(180deg);
+        }
+
+        .network-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+            padding: 0 24px;
+        }
+
+        .network-card.expanded .network-content {
+            max-height: 500px;
+            padding: 0 24px 24px 24px;
+        }
+
+        .network-phone-input {
+            margin-bottom: 20px;
+        }
+
+        .phone-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 60px;
+            padding: 4px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .phone-input-wrapper:focus-within {
+            border-color: #f59e0b;
+        }
+
+        .phone-input-wrapper i {
+            color: #94a3b8;
+            font-size: 18px;
+        }
+
+        .phone-input-wrapper input {
+            width: 100%;
+            padding: 16px 16px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1rem;
+            outline: none;
+        }
+
         .network-plans {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -265,20 +458,9 @@
             border-width: 2px;
         }
 
-        .network-card.mtn .plan-card.selected {
-            border-color: #f59e0b;
-            background: rgba(245, 158, 11, 0.15);
-        }
-
-        .network-card.airtel .plan-card.selected {
-            border-color: #ef4444;
-            background: rgba(239, 68, 68, 0.15);
-        }
-
-        .network-card.glo .plan-card.selected {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.15);
-        }
+        .network-card.mtn .plan-card.selected { border-color: #f59e0b; background: rgba(245, 158, 11, 0.15); }
+        .network-card.airtel .plan-card.selected { border-color: #ef4444; background: rgba(239, 68, 68, 0.15); }
+        .network-card.glo .plan-card.selected { border-color: #10b981; background: rgba(16, 185, 129, 0.15); }
 
         .plan-size {
             font-size: 1rem;
@@ -310,17 +492,9 @@
             gap: 8px;
         }
 
-        .network-card.mtn .network-buy-btn {
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-        }
-
-        .network-card.airtel .network-buy-btn {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-        }
-
-        .network-card.glo .network-buy-btn {
-            background: linear-gradient(135deg, #10b981, #059669);
-        }
+        .network-card.mtn .network-buy-btn { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .network-card.airtel .network-buy-btn { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .network-card.glo .network-buy-btn { background: linear-gradient(135deg, #10b981, #059669); }
 
         .network-buy-btn:hover:not(:disabled) {
             transform: scale(1.02);
@@ -332,7 +506,7 @@
             cursor: not-allowed;
         }
 
-        /* Referral Section Styles */
+        /* Referral Section */
         .referral-section {
             background: rgba(15, 25, 35, 0.7);
             backdrop-filter: blur(12px);
@@ -414,34 +588,12 @@
             transition: all 0.2s;
         }
 
-        .share-btn.whatsapp {
-            background: #25D366;
-            color: white;
-        }
-
-        .share-btn.facebook {
-            background: #1877F2;
-            color: white;
-        }
-
-        .share-btn.twitter {
-            background: #1DA1F2;
-            color: white;
-        }
-
-        .share-btn.telegram {
-            background: #0088cc;
-            color: white;
-        }
-
-        .share-btn.snapchat {
-            background: #FFFC00;
-            color: #000000;
-        }
-
-        .share-btn:hover {
-            transform: scale(1.02);
-        }
+        .share-btn.whatsapp { background: #25D366; color: white; }
+        .share-btn.facebook { background: #1877F2; color: white; }
+        .share-btn.twitter { background: #1DA1F2; color: white; }
+        .share-btn.telegram { background: #0088cc; color: white; }
+        .share-btn.snapchat { background: #FFFC00; color: #000000; }
+        .share-btn:hover { transform: scale(1.02); }
 
         .referral-stats {
             display: flex;
@@ -525,7 +677,7 @@
             font-size: 0.85rem;
         }
 
-        /* Admin Panel Styles */
+        /* Admin Panel */
         .admin-panel {
             background: rgba(15, 25, 35, 0.95);
             backdrop-filter: blur(12px);
@@ -614,25 +766,10 @@
             font-weight: 600;
         }
 
-        .status-pending {
-            background: rgba(245, 158, 11, 0.2);
-            color: #f59e0b;
-        }
-
-        .status-processing {
-            background: rgba(59, 130, 246, 0.2);
-            color: #3b82f6;
-        }
-
-        .status-declined {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        .status-completed {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-        }
+        .status-pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .status-processing { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .status-declined { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .status-completed { background: rgba(16, 185, 129, 0.2); color: #10b981; }
 
         .order-actions {
             display: flex;
@@ -648,7 +785,6 @@
             color: white;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         .pending-btn {
@@ -658,7 +794,6 @@
             border-radius: 40px;
             color: #f59e0b;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         .decline-btn {
@@ -668,16 +803,6 @@
             border-radius: 40px;
             color: #ef4444;
             cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .accept-btn:hover, .pending-btn:hover, .decline-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .accept-btn:disabled, .pending-btn:disabled, .decline-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
 
         .empty-orders {
@@ -686,6 +811,7 @@
             color: #94a3b8;
         }
 
+        /* Modals */
         .modal {
             display: none;
             position: fixed;
@@ -752,10 +878,6 @@
             letter-spacing: 5px;
         }
 
-        .passcode-input:focus {
-            border-color: #f59e0b;
-        }
-
         .bank-details {
             background: rgba(30, 41, 59, 0.6);
             border-radius: 16px;
@@ -789,10 +911,6 @@
             color: white;
             margin: 15px 0;
             outline: none;
-        }
-
-        .confirm-input:focus {
-            border-color: #f59e0b;
         }
 
         .confirm-btn {
@@ -989,21 +1107,11 @@
                     <button class="copy-referral-btn" onclick="copyReferralCode()">Copy Code</button>
                 </div>
                 <div class="share-buttons">
-                    <button class="share-btn whatsapp" onclick="shareOnWhatsApp()">
-                        <i class="fab fa-whatsapp"></i> WhatsApp
-                    </button>
-                    <button class="share-btn facebook" onclick="shareOnFacebook()">
-                        <i class="fab fa-facebook"></i> Facebook
-                    </button>
-                    <button class="share-btn twitter" onclick="shareOnTwitter()">
-                        <i class="fab fa-twitter"></i> Twitter
-                    </button>
-                    <button class="share-btn telegram" onclick="shareOnTelegram()">
-                        <i class="fab fa-telegram"></i> Telegram
-                    </button>
-                    <button class="share-btn snapchat" onclick="shareOnSnapchat()">
-                        <i class="fab fa-snapchat"></i> Snapchat
-                    </button>
+                    <button class="share-btn whatsapp" onclick="shareOnWhatsApp()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                    <button class="share-btn facebook" onclick="shareOnFacebook()"><i class="fab fa-facebook"></i> Facebook</button>
+                    <button class="share-btn twitter" onclick="shareOnTwitter()"><i class="fab fa-twitter"></i> Twitter</button>
+                    <button class="share-btn telegram" onclick="shareOnTelegram()"><i class="fab fa-telegram"></i> Telegram</button>
+                    <button class="share-btn snapchat" onclick="shareOnSnapchat()"><i class="fab fa-snapchat"></i> Snapchat</button>
                 </div>
                 <div class="referral-stats">
                     <div class="referral-stat">
@@ -1018,139 +1126,133 @@
             </div>
 
             <!-- Network Cards -->
-            <div class="networks-container" style="display: flex; flex-direction: column; gap: 20px; max-width: 550px; margin: 0 auto;">
+            <div class="networks-container">
                 <!-- MTN Card -->
-                <div class="network-card mtn" data-network="mtn" style="background: rgba(15, 25, 35, 0.6); backdrop-filter: blur(12px); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; transition: all 0.3s ease; cursor: pointer;">
-                    <div class="network-header" onclick="toggleNetwork('mtn')" style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="width: 55px; height: 55px; border-radius: 28px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(245, 158, 11, 0.15); color: #f59e0b;"><i class="fas fa-tower-cell"></i></div>
-                            <div>
-                                <h3 style="font-size: 1.4rem; font-weight: 700; color: #f59e0b;">MTN</h3>
-                                <p style="font-size: 0.75rem; color: #94a3b8;">Best coverage nationwide</p>
+                <div class="network-card mtn" data-network="mtn">
+                    <div class="network-header" onclick="toggleNetwork('mtn')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-tower-cell"></i></div>
+                            <div class="network-info">
+                                <h3>MTN</h3>
+                                <p>Best coverage nationwide</p>
                             </div>
                         </div>
-                        <i class="fas fa-chevron-down network-arrow" style="color: #94a3b8; transition: transform 0.3s ease;"></i>
+                        <i class="fas fa-chevron-down network-arrow"></i>
                     </div>
-                    <div class="network-content" style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease; padding: 0 24px;">
-                        <div class="network-phone-input" style="margin-bottom: 20px;">
-                            <div class="phone-input-wrapper" style="display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-radius: 60px; padding: 4px 20px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                                <i class="fas fa-phone-alt" style="color: #94a3b8;"></i>
-                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11" style="width: 100%; padding: 16px; background: transparent; border: none; color: white; outline: none;">
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
                             </div>
                         </div>
-                        <div class="network-plans" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                            <div class="plan-card" data-mb="200" data-price="140" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="140">
                                 <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #f59e0b;">₦140</div>
+                                <div class="plan-price">₦140</div>
                             </div>
-                            <div class="plan-card" data-mb="300" data-price="220" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="300" data-price="220">
                                 <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #f59e0b;">₦220</div>
+                                <div class="plan-price">₦220</div>
                             </div>
-                            <div class="plan-card" data-mb="700" data-price="520" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="700" data-price="520">
                                 <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #f59e0b;">₦520</div>
+                                <div class="plan-price">₦520</div>
                             </div>
-                            <div class="plan-card" data-mb="1024" data-price="600" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="1024" data-price="600">
                                 <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
-                                <div class="plan-price" style="color: #f59e0b;">₦600</div>
+                                <div class="plan-price">₦600</div>
                             </div>
                         </div>
-                        <button class="network-buy-btn" disabled style="width: 100%; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; padding: 14px; border-radius: 60px; color: white; font-weight: 700; cursor: pointer;">
-                            <i class="fas fa-bolt"></i> Buy MTN Data
-                        </button>
+                        <button class="network-buy-btn" disabled><i class="fas fa-bolt"></i> Buy MTN Data</button>
                     </div>
                 </div>
 
                 <!-- Airtel Card -->
-                <div class="network-card airtel" data-network="airtel" style="background: rgba(15, 25, 35, 0.6); backdrop-filter: blur(12px); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; transition: all 0.3s ease; cursor: pointer;">
-                    <div class="network-header" onclick="toggleNetwork('airtel')" style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="width: 55px; height: 55px; border-radius: 28px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(239, 68, 68, 0.15); color: #ef4444;"><i class="fas fa-broadcast-tower"></i></div>
-                            <div>
-                                <h3 style="font-size: 1.4rem; font-weight: 700; color: #ef4444;">Airtel</h3>
-                                <p style="font-size: 0.75rem; color: #94a3b8;">Fast and reliable</p>
+                <div class="network-card airtel" data-network="airtel">
+                    <div class="network-header" onclick="toggleNetwork('airtel')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-broadcast-tower"></i></div>
+                            <div class="network-info">
+                                <h3>Airtel</h3>
+                                <p>Fast and reliable</p>
                             </div>
                         </div>
-                        <i class="fas fa-chevron-down network-arrow" style="color: #94a3b8; transition: transform 0.3s ease;"></i>
+                        <i class="fas fa-chevron-down network-arrow"></i>
                     </div>
-                    <div class="network-content" style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease; padding: 0 24px;">
-                        <div class="network-phone-input" style="margin-bottom: 20px;">
-                            <div class="phone-input-wrapper" style="display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-radius: 60px; padding: 4px 20px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                                <i class="fas fa-phone-alt" style="color: #94a3b8;"></i>
-                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11" style="width: 100%; padding: 16px; background: transparent; border: none; color: white; outline: none;">
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
                             </div>
                         </div>
-                        <div class="network-plans" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                            <div class="plan-card" data-mb="200" data-price="120" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="120">
                                 <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #ef4444;">₦120</div>
+                                <div class="plan-price">₦120</div>
                             </div>
-                            <div class="plan-card" data-mb="300" data-price="210" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="300" data-price="210">
                                 <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #ef4444;">₦210</div>
+                                <div class="plan-price">₦210</div>
                             </div>
-                            <div class="plan-card" data-mb="700" data-price="510" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="700" data-price="510">
                                 <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #ef4444;">₦510</div>
+                                <div class="plan-price">₦510</div>
                             </div>
-                            <div class="plan-card" data-mb="1024" data-price="600" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="1024" data-price="600">
                                 <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
-                                <div class="plan-price" style="color: #ef4444;">₦600</div>
+                                <div class="plan-price">₦600</div>
                             </div>
                         </div>
-                        <button class="network-buy-btn" disabled style="width: 100%; background: linear-gradient(135deg, #ef4444, #dc2626); border: none; padding: 14px; border-radius: 60px; color: white; font-weight: 700; cursor: pointer;">
-                            <i class="fas fa-bolt"></i> Buy Airtel Data
-                        </button>
+                        <button class="network-buy-btn" disabled><i class="fas fa-bolt"></i> Buy Airtel Data</button>
                     </div>
                 </div>
 
                 <!-- Glo Card -->
-                <div class="network-card glo" data-network="glo" style="background: rgba(15, 25, 35, 0.6); backdrop-filter: blur(12px); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; transition: all 0.3s ease; cursor: pointer;">
-                    <div class="network-header" onclick="toggleNetwork('glo')" style="display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <div style="width: 55px; height: 55px; border-radius: 28px; display: flex; align-items: center; justify-content: center; font-size: 28px; background: rgba(16, 185, 129, 0.15); color: #10b981;"><i class="fas fa-globe"></i></div>
-                            <div>
-                                <h3 style="font-size: 1.4rem; font-weight: 700; color: #10b981;">Glo</h3>
-                                <p style="font-size: 0.75rem; color: #94a3b8;">Cheapest data plans</p>
+                <div class="network-card glo" data-network="glo">
+                    <div class="network-header" onclick="toggleNetwork('glo')">
+                        <div class="network-header-left">
+                            <div class="network-icon"><i class="fas fa-globe"></i></div>
+                            <div class="network-info">
+                                <h3>Glo</h3>
+                                <p>Cheapest data plans</p>
                             </div>
                         </div>
-                        <i class="fas fa-chevron-down network-arrow" style="color: #94a3b8; transition: transform 0.3s ease;"></i>
+                        <i class="fas fa-chevron-down network-arrow"></i>
                     </div>
-                    <div class="network-content" style="max-height: 0; overflow: hidden; transition: max-height 0.4s ease; padding: 0 24px;">
-                        <div class="network-phone-input" style="margin-bottom: 20px;">
-                            <div class="phone-input-wrapper" style="display: flex; align-items: center; background: rgba(30, 41, 59, 0.8); border-radius: 60px; padding: 4px 20px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                                <i class="fas fa-phone-alt" style="color: #94a3b8;"></i>
-                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11" style="width: 100%; padding: 16px; background: transparent; border: none; color: white; outline: none;">
+                    <div class="network-content">
+                        <div class="network-phone-input">
+                            <div class="phone-input-wrapper">
+                                <i class="fas fa-phone-alt"></i>
+                                <input type="tel" class="network-phone" placeholder="Enter phone number" maxlength="11">
                             </div>
                         </div>
-                        <div class="network-plans" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
-                            <div class="plan-card" data-mb="200" data-price="110" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                        <div class="network-plans">
+                            <div class="plan-card" data-mb="200" data-price="110">
                                 <div class="plan-size">200<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #10b981;">₦110</div>
+                                <div class="plan-price">₦110</div>
                             </div>
-                            <div class="plan-card" data-mb="300" data-price="200" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="300" data-price="200">
                                 <div class="plan-size">300<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #10b981;">₦200</div>
+                                <div class="plan-price">₦200</div>
                             </div>
-                            <div class="plan-card" data-mb="700" data-price="500" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="700" data-price="500">
                                 <div class="plan-size">700<span style="font-size: 0.7rem;">MB</span></div>
-                                <div class="plan-price" style="color: #10b981;">₦500</div>
+                                <div class="plan-price">₦500</div>
                             </div>
-                            <div class="plan-card" data-mb="1024" data-price="550" style="background: rgba(30, 41, 59, 0.6); border-radius: 20px; padding: 16px 8px; text-align: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);">
+                            <div class="plan-card" data-mb="1024" data-price="550">
                                 <div class="plan-size">1<span style="font-size: 0.7rem;">GB</span></div>
-                                <div class="plan-price" style="color: #10b981;">₦550</div>
+                                <div class="plan-price">₦550</div>
                             </div>
                         </div>
-                        <button class="network-buy-btn" disabled style="width: 100%; background: linear-gradient(135deg, #10b981, #059669); border: none; padding: 14px; border-radius: 60px; color: white; font-weight: 700; cursor: pointer;">
-                            <i class="fas fa-bolt"></i> Buy Glo Data
-                        </button>
+                        <button class="network-buy-btn" disabled><i class="fas fa-bolt"></i> Buy Glo Data</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Admin Panel - Pending Orders -->
+        <!-- Admin Panel -->
         <div class="admin-panel" id="adminPanel" style="display: none;">
             <div class="admin-header" onclick="toggleAdminPanel()">
                 <h3><i class="fas fa-clock"></i> Order Management <span class="order-count-badge" id="orderCountBadge">0</span></h3>
@@ -1191,7 +1293,7 @@
         </div>
     </div>
 
-    <!-- Admin Passcode Modal -->
+    <!-- Modals -->
     <div class="modal" id="adminPasscodeModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeAdminPasscodeModal()"><i class="fas fa-times"></i></button>
@@ -1205,33 +1307,27 @@
         </div>
     </div>
 
-    <!-- Payment Modal -->
     <div class="modal" id="paymentModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closePaymentModal()"><i class="fas fa-times"></i></button>
             <div class="modal-icon"><i class="fas fa-money-bill-wave"></i></div>
             <h3>Complete Your Payment</h3>
             <p>Send <strong>₦<span id="payAmount">0</span></strong> to this account</p>
-            
             <div class="bank-details">
                 <p><strong>Bank:</strong> Moniepoint MFB</p>
                 <p><strong>Account Name:</strong> Sunday Ijeoma Anastasia</p>
                 <p><strong>Account Number:</strong> 9066051034</p>
                 <button class="copy-btn" onclick="copyAccount()">📋 Copy Account Number</button>
             </div>
-
             <p style="font-size: 0.8rem; margin-bottom: 10px;">After payment, enter your transaction details below:</p>
-            
             <input type="text" id="transactionRef" class="confirm-input" placeholder="Transaction reference / Amount sent">
             <input type="text" id="senderName" class="confirm-input" placeholder="Your name as on bank transfer">
-            
             <button class="confirm-btn" onclick="submitPaymentConfirmation()">
                 <i class="fas fa-check-circle"></i> I Have Paid - Submit
             </button>
         </div>
     </div>
 
-    <!-- Reward Claim Modal -->
     <div class="modal" id="rewardClaimModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closeRewardClaimModal()"><i class="fas fa-times"></i></button>
@@ -1249,17 +1345,12 @@
         </div>
     </div>
 
-    <!-- User Notification Modals -->
     <div class="modal" id="pendingNotificationModal">
         <div class="modal-content">
             <button class="modal-close" onclick="closePendingModal()"><i class="fas fa-times"></i></button>
             <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-clock"></i></div>
             <h3>Payment Under Review</h3>
             <p>There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction.</p>
-            <div style="background: rgba(245, 158, 11, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
-                <i class="fas fa-spinner fa-pulse" style="color: #f59e0b;"></i>
-                <span style="margin-left: 10px;">Your order is pending review. You will receive an update shortly.</span>
-            </div>
             <button class="confirm-btn" onclick="closePendingModal()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 20px;">
                 <i class="fas fa-check"></i> I Understand
             </button>
@@ -1271,11 +1362,7 @@
             <button class="modal-close" onclick="closeDeclinedModal()"><i class="fas fa-times"></i></button>
             <div class="modal-icon" style="color: #ef4444;"><i class="fas fa-times-circle"></i></div>
             <h3>Payment Declined</h3>
-            <p>Your payment has been declined.</p>
-            <div style="background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
-                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
-                <span style="margin-left: 10px;">We could not verify your payment. Please contact support for assistance or try again.</span>
-            </div>
+            <p>Your payment has been declined. Please contact support for assistance or try again.</p>
             <button class="confirm-btn" onclick="closeDeclinedModal()" style="background: linear-gradient(135deg, #ef4444, #dc2626); margin-top: 20px;">
                 <i class="fas fa-check"></i> OK
             </button>
@@ -1288,12 +1375,20 @@
             <div class="modal-icon" style="color: #10b981;"><i class="fas fa-check-circle"></i></div>
             <h3>Payment Confirmed!</h3>
             <p>Your payment has been confirmed and your data has been sent!</p>
-            <div style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 12px; margin: 15px 0;">
-                <i class="fas fa-database" style="color: #10b981;"></i>
-                <span style="margin-left: 10px;">Your data has been credited to your phone number.</span>
-            </div>
             <button class="confirm-btn" onclick="closeSuccessNotificationModal()" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 20px;">
                 <i class="fas fa-check"></i> Great!
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="promoEndedModal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closePromoEndedModal()"><i class="fas fa-times"></i></button>
+            <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-gift"></i></div>
+            <h3>Promo Ended</h3>
+            <p>The 100MB free data promo has ended. The first 15 people have already claimed their reward!</p>
+            <button class="confirm-btn" onclick="closePromoEndedModal()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 20px;">
+                <i class="fas fa-check"></i> OK
             </button>
         </div>
     </div>
@@ -1306,7 +1401,7 @@
 
     <script>
         // ============================================
-        // SITE URL - CHANGE THIS TO YOUR LIVE URL
+        // SITE URL
         // ============================================
         const SITE_URL = "https://onslot.onrender.com";
 
@@ -1686,8 +1781,6 @@
             }
             
             const url = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${phoneNumber}&network_id=${network}&variation_id=${variationId}`;
-            
-            console.log(`Sending request to VTU.ng for ${network} ${planMB}MB to ${phoneNumber}`);
             
             try {
                 const response = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
@@ -2108,6 +2201,7 @@
 
         function closeFreeDataModal() { document.getElementById("freeDataModal").style.display = "none"; }
         function closePromoEndedModal() { document.getElementById("promoEndedModal").style.display = "none"; }
+        
         function isValidPhone(phone) {
             if (!phone) return false;
             const clean = phone.replace(/\s/g, '');
