@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        /* ... (all your existing CSS styles remain exactly the same) ... */
         * {
             margin: 0;
             padding: 0;
@@ -1629,19 +1628,35 @@
     </footer>
 
     <script>
-       // ============================================
-// SUPABASE CONFIGURATION
-// ============================================
-const SUPABASE_URL = "https://onslot.supabase.co";  // Your actual project URL
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JgG_LKW5wVbQhnY4fykeGg_5xiGcYKS";  // Your onslot publishable key
-
-// Initialize Supabase client
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        // ============================================
+        // SUPABASE CONFIGURATION
+        // !!! REPLACE WITH YOUR SUPABASE CREDENTIALS !!!
+        // ============================================
+        // Find these in your Supabase Project Settings -> API
+        const SUPABASE_URL = "https://YOUR_PROJECT_ID.supabase.co";  // Replace with your Project URL
+        const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_YOUR_KEY_HERE";  // Replace with your publishable key
+        
+        // Initialize Supabase client (will work even if keys are not set, just shows error)
+        let supabase = null;
+        let supabaseEnabled = false;
+        
+        try {
+            if (SUPABASE_URL !== "https://YOUR_PROJECT_ID.supabase.co" && SUPABASE_PUBLISHABLE_KEY !== "sb_publishable_YOUR_KEY_HERE") {
+                supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+                supabaseEnabled = true;
+                console.log("Supabase connected successfully!");
+            } else {
+                console.log("Supabase not configured - using localStorage only");
+            }
+        } catch(e) {
+            console.log("Supabase initialization error:", e);
+            supabaseEnabled = false;
+        }
         
         // ============================================
         // SITE URL
         // ============================================
-        const SITE_URL = "https://onslot.onrender.com";
+        const SITE_URL = window.location.origin;
 
         // ============================================
         // ADMIN PASSCODE
@@ -1674,29 +1689,66 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         let selectedData = {};
 
         // ============================================
-        // SUPABASE SYNC FUNCTIONS
+        // LOCAL STORAGE FALLBACK FUNCTIONS
         // ============================================
         
-        // Check if user exists in Supabase
-        async function checkUserExists(email) {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', email)
-                .single();
-            
-            if (error && error.code !== 'PGRST116') {
-                console.error("Error checking user:", error);
-                return null;
-            }
-            return data;
+        function getLocalUsers() {
+            return JSON.parse(localStorage.getItem("onslot_users") || "[]");
         }
         
-        // Create new user in Supabase
+        function saveLocalUsers(users) {
+            localStorage.setItem("onslot_users", JSON.stringify(users));
+        }
+        
+        function getLocalReferrals() {
+            return JSON.parse(localStorage.getItem("onslot_referrals") || "[]");
+        }
+        
+        function saveLocalReferrals(referrals) {
+            localStorage.setItem("onslot_referrals", JSON.stringify(referrals));
+        }
+        
+        function getLocalOrders() {
+            return JSON.parse(localStorage.getItem("onslot_pending_orders") || "[]");
+        }
+        
+        function saveLocalOrders(orders) {
+            localStorage.setItem("onslot_pending_orders", JSON.stringify(orders));
+            pendingOrders = orders;
+            renderPendingOrders();
+            updateNotificationBadges();
+        }
+        
+        // ============================================
+        // SUPABASE SYNC FUNCTIONS (with fallback)
+        // ============================================
+        
+        async function checkUserExists(email) {
+            if (!supabaseEnabled) {
+                const users = getLocalUsers();
+                return users.find(u => u.email === email) || null;
+            }
+            
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('email', email)
+                    .maybeSingle();
+                
+                if (error) throw error;
+                return data;
+            } catch(e) {
+                console.error("Supabase error, falling back to localStorage:", e);
+                const users = getLocalUsers();
+                return users.find(u => u.email === email) || null;
+            }
+        }
+        
         async function createUserInSupabase(userData) {
-            const { data, error } = await supabase
-                .from('users')
-                .insert([{
+            if (!supabaseEnabled) {
+                const users = getLocalUsers();
+                users.push({
                     email: userData.email,
                     name: userData.name,
                     phone: userData.phone,
@@ -1706,152 +1758,311 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                     referral_reward_mb: 0,
                     referrals_needed: 5,
                     got_free_data: userData.gotFreeData || false,
-                    free_data_claimed: userData.freeDataClaimed || false,
-                    reward_claimed: false,
-                    promo_ended_shown: false
-                }])
-                .select();
-            
-            if (error) {
-                console.error("Error creating user:", error);
-                return null;
+                    free_data_claimed: userData.freeDataClaimed || false
+                });
+                saveLocalUsers(users);
+                return userData;
             }
-            return data?.[0];
+            
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .insert([{
+                        email: userData.email,
+                        name: userData.name,
+                        phone: userData.phone,
+                        password: userData.password,
+                        referral_code: userData.referralCode,
+                        referral_count: 0,
+                        referral_reward_mb: 0,
+                        referrals_needed: 5,
+                        got_free_data: userData.gotFreeData || false,
+                        free_data_claimed: userData.freeDataClaimed || false
+                    }])
+                    .select();
+                
+                if (error) throw error;
+                return data?.[0];
+            } catch(e) {
+                console.error("Supabase error, saving to localStorage instead:", e);
+                const users = getLocalUsers();
+                users.push({
+                    email: userData.email,
+                    name: userData.name,
+                    phone: userData.phone,
+                    password: userData.password,
+                    referral_code: userData.referralCode,
+                    referral_count: 0,
+                    referral_reward_mb: 0,
+                    referrals_needed: 5,
+                    got_free_data: userData.gotFreeData || false,
+                    free_data_claimed: userData.freeDataClaimed || false
+                });
+                saveLocalUsers(users);
+                return userData;
+            }
         }
         
-        // Update user in Supabase
         async function updateUserInSupabase(email, updates) {
-            const { data, error } = await supabase
-                .from('users')
-                .update(updates)
-                .eq('email', email)
-                .select();
-            
-            if (error) {
-                console.error("Error updating user:", error);
-                return null;
+            if (!supabaseEnabled) {
+                const users = getLocalUsers();
+                const index = users.findIndex(u => u.email === email);
+                if (index !== -1) {
+                    users[index] = { ...users[index], ...updates };
+                    saveLocalUsers(users);
+                }
+                return;
             }
-            return data?.[0];
+            
+            try {
+                const { error } = await supabase
+                    .from('users')
+                    .update(updates)
+                    .eq('email', email);
+                
+                if (error) throw error;
+            } catch(e) {
+                console.error("Supabase error, updating localStorage instead:", e);
+                const users = getLocalUsers();
+                const index = users.findIndex(u => u.email === email);
+                if (index !== -1) {
+                    users[index] = { ...users[index], ...updates };
+                    saveLocalUsers(users);
+                }
+            }
         }
         
-        // Get user from Supabase by email
         async function getUserFromSupabase(email) {
-            const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', email)
-                .single();
-            
-            if (error) {
-                console.error("Error getting user:", error);
-                return null;
+            if (!supabaseEnabled) {
+                const users = getLocalUsers();
+                return users.find(u => u.email === email) || null;
             }
-            return data;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('email', email)
+                    .maybeSingle();
+                
+                if (error) throw error;
+                return data;
+            } catch(e) {
+                console.error("Supabase error, using localStorage:", e);
+                const users = getLocalUsers();
+                return users.find(u => u.email === email) || null;
+            }
         }
         
-        // Save referral in Supabase
         async function saveReferralInSupabase(referrerEmail, referredEmail) {
-            const { data, error } = await supabase
-                .from('referrals')
-                .insert([{
+            if (!supabaseEnabled) {
+                const referrals = getLocalReferrals();
+                referrals.push({
                     referrer_email: referrerEmail,
                     referred_email: referredEmail,
                     status: 'completed'
-                }])
-                .select();
-            
-            if (error) {
-                console.error("Error saving referral:", error);
-                return null;
+                });
+                saveLocalReferrals(referrals);
+                return;
             }
-            return data;
+            
+            try {
+                const { error } = await supabase
+                    .from('referrals')
+                    .insert([{
+                        referrer_email: referrerEmail,
+                        referred_email: referredEmail,
+                        status: 'completed'
+                    }]);
+                
+                if (error) throw error;
+            } catch(e) {
+                console.error("Supabase error, saving to localStorage instead:", e);
+                const referrals = getLocalReferrals();
+                referrals.push({
+                    referrer_email: referrerEmail,
+                    referred_email: referredEmail,
+                    status: 'completed'
+                });
+                saveLocalReferrals(referrals);
+            }
         }
         
-        // Get referrals for a user from Supabase
         async function getReferralsFromSupabase(email) {
-            const { data, error } = await supabase
-                .from('referrals')
-                .select('*')
-                .eq('referrer_email', email);
-            
-            if (error) {
-                console.error("Error getting referrals:", error);
-                return [];
+            if (!supabaseEnabled) {
+                const referrals = getLocalReferrals();
+                return referrals.filter(r => r.referrer_email === email);
             }
-            return data;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('referrals')
+                    .select('*')
+                    .eq('referrer_email', email);
+                
+                if (error) throw error;
+                return data || [];
+            } catch(e) {
+                console.error("Supabase error, using localStorage:", e);
+                const referrals = getLocalReferrals();
+                return referrals.filter(r => r.referrer_email === email);
+            }
         }
         
-        // Save order in Supabase
         async function saveOrderInSupabase(order) {
-            const { data, error } = await supabase
-                .from('orders')
-                .insert([{
-                    order_id: order.id.toString(),
-                    user_email: order.userEmail,
-                    customer_name: order.customerName,
+            if (!supabaseEnabled) {
+                const orders = getLocalOrders();
+                orders.unshift({
+                    id: order.id,
+                    customerName: order.customerName,
+                    userEmail: order.userEmail,
                     phone: order.phone,
                     network: order.network,
                     plan: order.plan,
                     amount: order.amount,
-                    transaction_ref: order.transactionRef,
-                    payment_method: order.paymentMethod,
-                    bank_name: order.bankName,
-                    receipt_image: order.receiptImage,
-                    status: order.status
-                }])
-                .select();
-            
-            if (error) {
-                console.error("Error saving order:", error);
-                return null;
+                    transactionRef: order.transactionRef,
+                    timestamp: order.timestamp,
+                    status: order.status,
+                    paymentMethod: order.paymentMethod,
+                    bankName: order.bankName,
+                    receiptImage: order.receiptImage
+                });
+                saveLocalOrders(orders);
+                return;
             }
-            return data;
+            
+            try {
+                const { error } = await supabase
+                    .from('orders')
+                    .insert([{
+                        order_id: order.id,
+                        user_email: order.userEmail,
+                        customer_name: order.customerName,
+                        phone: order.phone,
+                        network: order.network,
+                        plan: order.plan,
+                        amount: order.amount,
+                        transaction_ref: order.transactionRef,
+                        payment_method: order.paymentMethod,
+                        bank_name: order.bankName,
+                        receipt_image: order.receiptImage,
+                        status: order.status
+                    }]);
+                
+                if (error) throw error;
+            } catch(e) {
+                console.error("Supabase error, saving to localStorage instead:", e);
+                const orders = getLocalOrders();
+                orders.unshift({
+                    id: order.id,
+                    customerName: order.customerName,
+                    userEmail: order.userEmail,
+                    phone: order.phone,
+                    network: order.network,
+                    plan: order.plan,
+                    amount: order.amount,
+                    transactionRef: order.transactionRef,
+                    timestamp: order.timestamp,
+                    status: order.status,
+                    paymentMethod: order.paymentMethod,
+                    bankName: order.bankName,
+                    receiptImage: order.receiptImage
+                });
+                saveLocalOrders(orders);
+            }
         }
         
-        // Get orders from Supabase
         async function getOrdersFromSupabase() {
-            const { data, error } = await supabase
-                .from('orders')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) {
-                console.error("Error getting orders:", error);
-                return [];
+            if (!supabaseEnabled) {
+                return getLocalOrders();
             }
-            return data;
+            
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                
+                if (error) throw error;
+                return data.map(order => ({
+                    id: order.order_id,
+                    customerName: order.customer_name,
+                    userEmail: order.user_email,
+                    phone: order.phone,
+                    network: order.network,
+                    plan: order.plan,
+                    amount: order.amount,
+                    transactionRef: order.transaction_ref,
+                    timestamp: order.created_at,
+                    status: order.status,
+                    paymentMethod: order.payment_method,
+                    bankName: order.bank_name,
+                    receiptImage: order.receipt_image
+                }));
+            } catch(e) {
+                console.error("Supabase error, using localStorage:", e);
+                return getLocalOrders();
+            }
         }
         
-        // Update order status in Supabase
         async function updateOrderStatusInSupabase(orderId, status) {
-            const { data, error } = await supabase
-                .from('orders')
-                .update({ status: status })
-                .eq('order_id', orderId)
-                .select();
-            
-            if (error) {
-                console.error("Error updating order:", error);
-                return null;
+            if (!supabaseEnabled) {
+                const orders = getLocalOrders();
+                const index = orders.findIndex(o => o.id === orderId);
+                if (index !== -1) {
+                    orders[index].status = status;
+                    saveLocalOrders(orders);
+                }
+                return;
             }
-            return data;
+            
+            try {
+                const { error } = await supabase
+                    .from('orders')
+                    .update({ status: status })
+                    .eq('order_id', orderId);
+                
+                if (error) throw error;
+            } catch(e) {
+                console.error("Supabase error, updating localStorage instead:", e);
+                const orders = getLocalOrders();
+                const index = orders.findIndex(o => o.id === orderId);
+                if (index !== -1) {
+                    orders[index].status = status;
+                    saveLocalOrders(orders);
+                }
+            }
         }
-        
+
         // ============================================
-        // FREE DATA TRACKING (Sync with Supabase)
+        // FREE DATA TRACKING
         // ============================================
+        const MAX_FREE_SIGNUPS = 15;
         let freeSignupCount = 0;
         let freeSignupUsers = [];
         
         async function loadFreeDataStats() {
-            const { data, error } = await supabase
-                .from('users')
-                .select('email')
-                .eq('got_free_data', true);
+            if (!supabaseEnabled) {
+                freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+                freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
+                updateFreeDataBanner();
+                return;
+            }
             
-            if (!error && data) {
-                freeSignupUsers = data.map(u => u.email);
-                freeSignupCount = freeSignupUsers.length;
+            try {
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('email')
+                    .eq('got_free_data', true);
+                
+                if (!error && data) {
+                    freeSignupUsers = data.map(u => u.email);
+                    freeSignupCount = freeSignupUsers.length;
+                    updateFreeDataBanner();
+                }
+            } catch(e) {
+                freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+                freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
                 updateFreeDataBanner();
             }
         }
@@ -1860,11 +2071,35 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
             if (!freeSignupUsers.includes(email) && freeSignupCount < MAX_FREE_SIGNUPS) {
                 freeSignupUsers.push(email);
                 freeSignupCount++;
-                await updateUserInSupabase(email, { got_free_data: true });
+                if (supabaseEnabled) {
+                    await updateUserInSupabase(email, { got_free_data: true });
+                }
+                localStorage.setItem("onslot_free_signup_count", freeSignupCount);
+                localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
                 updateFreeDataBanner();
                 return true;
             }
             return false;
+        }
+
+        function updateFreeDataBanner() {
+            const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
+            const spotsLeftSpan = document.getElementById("spotsLeft");
+            const banner = document.getElementById("freeDataBanner");
+            
+            if (spotsLeftSpan) {
+                if (spotsLeft > 0) {
+                    spotsLeftSpan.textContent = spotsLeft;
+                    banner.classList.remove("promo-ended");
+                } else {
+                    spotsLeftSpan.textContent = "0";
+                    banner.classList.add("promo-ended");
+                    banner.style.background = "rgba(239, 68, 68, 0.2)";
+                    banner.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                    const bannerTitle = banner.querySelector("h4");
+                    if (bannerTitle) bannerTitle.style.color = "#ef4444";
+                }
+            }
         }
 
         // ============================================
@@ -1968,30 +2203,9 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         }
 
         // ============================================
-        // REFERRAL & FREE DATA TRACKING
+        // REFERRAL FUNCTIONS
         // ============================================
-        const MAX_FREE_SIGNUPS = 15;
-
-        function updateFreeDataBanner() {
-            const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
-            const spotsLeftSpan = document.getElementById("spotsLeft");
-            const banner = document.getElementById("freeDataBanner");
-            
-            if (spotsLeftSpan) {
-                if (spotsLeft > 0) {
-                    spotsLeftSpan.textContent = spotsLeft;
-                    banner.classList.remove("promo-ended");
-                } else {
-                    spotsLeftSpan.textContent = "0";
-                    banner.classList.add("promo-ended");
-                    banner.style.background = "rgba(239, 68, 68, 0.2)";
-                    banner.style.borderColor = "rgba(239, 68, 68, 0.3)";
-                    const bannerTitle = banner.querySelector("h4");
-                    if (bannerTitle) bannerTitle.style.color = "#ef4444";
-                }
-            }
-        }
-
+        
         function generateNewReferralCode(oldCode) {
             const random = Math.floor(Math.random() * 10000);
             const prefix = oldCode.substring(0, 3);
@@ -2007,14 +2221,25 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         async function saveReferralRelationship(newUserEmail, referrerCode) {
             if (!referrerCode) return null;
             
-            const users = await supabase
-                .from('users')
-                .select('*')
-                .eq('referral_code', referrerCode)
-                .single();
+            let referrer = null;
             
-            if (users.data) {
-                const referrer = users.data;
+            if (supabaseEnabled) {
+                try {
+                    const { data } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('referral_code', referrerCode)
+                        .maybeSingle();
+                    referrer = data;
+                } catch(e) {}
+            }
+            
+            if (!referrer) {
+                const users = getLocalUsers();
+                referrer = users.find(u => u.referral_code === referrerCode);
+            }
+            
+            if (referrer) {
                 await saveReferralInSupabase(referrer.email, newUserEmail);
                 
                 const newCode = generateNewReferralCode(referrer.referral_code);
@@ -2344,7 +2569,7 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                 return;
             }
 
-            // Check if user already exists in Supabase
+            // Check if user already exists
             const existingUser = await checkUserExists(email);
             if (existingUser) {
                 showToast("Email already registered", "error");
@@ -2400,13 +2625,16 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                     name: user.name,
                     phone: user.phone,
                     referralCode: user.referral_code,
-                    referralCount: user.referral_count,
-                    referralRewardMB: user.referral_reward_mb,
-                    referralsNeeded: user.referrals_needed,
-                    gotFreeData: user.got_free_data,
-                    freeDataClaimed: user.free_data_claimed,
-                    rewardClaimed: user.reward_claimed
+                    referralCount: user.referral_count || 0,
+                    referralRewardMB: user.referral_reward_mb || 0,
+                    referralsNeeded: user.referrals_needed || 5,
+                    gotFreeData: user.got_free_data || false,
+                    freeDataClaimed: user.free_data_claimed || false,
+                    rewardClaimed: user.reward_claimed || false
                 };
+                
+                // Also save to localStorage for persistence
+                localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
                 
                 showToast("Login successful!", "success");
                 await loadDashboard();
@@ -2431,6 +2659,7 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         async function logout() {
             currentUser = null;
             isAdminAuthenticated = false;
+            localStorage.removeItem("onslot_current_user");
             document.getElementById("authSection").style.display = "flex";
             document.getElementById("dashboardContent").style.display = "none";
             document.getElementById("userInfo").style.display = "none";
@@ -2446,7 +2675,6 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                 document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
                 
                 await loadPendingOrders();
-                await checkUserNotifications();
                 displayReferralInfo();
                 updateFreeDataBanner();
                 renderBankList("");
@@ -2520,21 +2748,7 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
         async function loadPendingOrders() {
             const orders = await getOrdersFromSupabase();
-            pendingOrders = orders.map(order => ({
-                id: order.order_id,
-                customerName: order.customer_name,
-                userEmail: order.user_email,
-                phone: order.phone,
-                network: order.network,
-                plan: order.plan,
-                amount: order.amount,
-                transactionRef: order.transaction_ref,
-                timestamp: order.created_at,
-                status: order.status,
-                paymentMethod: order.payment_method,
-                bankName: order.bank_name,
-                receiptImage: order.receipt_image
-            }));
+            pendingOrders = orders;
             renderPendingOrders();
             updateNotificationBadges();
         }
@@ -2615,7 +2829,6 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                     await updateOrderStatusInSupabase(order.id, "completed");
                     await loadPendingOrders();
                     showToast(`✅ ${order.plan}MB ${order.network.toUpperCase()} data sent to ${order.phone}!`, "success");
-                    await notifyUser(order.userEmail, "success", order.plan, order.phone);
                 } else {
                     order.status = "pending";
                     await updateOrderStatusInSupabase(order.id, "pending");
@@ -2633,7 +2846,6 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         async function markAsPending(index) {
             const order = pendingOrders[index];
             if (!order || order.status !== "pending") return;
-            await notifyUser(order.userEmail, "pending", order.plan, order.phone);
             showToast(`Pending notification sent to ${order.customerName}`, "warning");
         }
 
@@ -2644,51 +2856,8 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
                 order.status = "declined";
                 await updateOrderStatusInSupabase(order.id, "declined");
                 await loadPendingOrders();
-                await notifyUser(order.userEmail, "declined", order.plan, order.phone);
                 showToast(`Order declined. Notification sent to ${order.customerName}`, "error");
             }
-        }
-
-        async function notifyUser(userEmail, type, plan, phone) {
-            const { error } = await supabase
-                .from('notifications')
-                .insert([{
-                    user_email: userEmail,
-                    type: type,
-                    plan: plan,
-                    phone: phone,
-                    message: type === "success" ? "Your payment has been confirmed and data has been sent!" :
-                              type === "pending" ? "There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction." :
-                              "Your payment has been declined. Please contact support for assistance.",
-                    read: false
-                }]);
-            
-            if (error) console.error("Error saving notification:", error);
-            
-            if (currentUser && currentUser.email === userEmail) {
-                if (type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
-                else if (type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
-                else if (type === "success") document.getElementById("successNotificationModal").style.display = "flex";
-            }
-        }
-
-        async function checkUserNotifications() {
-            if (!currentUser) return;
-            const { data, error } = await supabase
-                .from('notifications')
-                .select('*')
-                .eq('user_email', currentUser.email)
-                .eq('read', false)
-                .order('created_at', { ascending: false });
-            
-            if (error || !data || data.length === 0) return;
-            
-            const latest = data[0];
-            if (latest.type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
-            else if (latest.type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
-            else if (latest.type === "success") document.getElementById("successNotificationModal").style.display = "flex";
-            
-            await supabase.from('notifications').update({ read: true }).eq('id', latest.id);
         }
 
         function processPurchase(network) {
@@ -2807,13 +2976,20 @@ const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
         function closeDeclinedModal() { document.getElementById("declinedNotificationModal").style.display = "none"; }
         function closeSuccessNotificationModal() { document.getElementById("successNotificationModal").style.display = "none"; }
 
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
         document.addEventListener("DOMContentLoaded", async () => {
             await loadFreeDataStats();
+            
+            // Check for saved session
             const savedUser = localStorage.getItem("onslot_current_user");
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
                 await loadDashboard();
             }
+            
             updateFreeDataBanner();
         });
     </script>
