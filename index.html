@@ -6,7 +6,9 @@
     <title>OnSlot - Buy Cheap Data</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
+        /* ... (all your existing CSS styles remain exactly the same) ... */
         * {
             margin: 0;
             padding: 0;
@@ -104,29 +106,24 @@
             font-weight: 500;
         }
 
-        /* Hidden Admin Flag - Looks like a normal icon to regular users */
-        .admin-flag {
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 8px 12px;
-            border-radius: 40px;
-            color: #64748b;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.8rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .admin-flag:hover {
-            background: rgba(30, 41, 59, 0.6);
-            color: #94a3b8;
-        }
-
         .admin-btn-container {
             position: relative;
             display: inline-block;
+        }
+
+        .admin-btn {
+            background: rgba(245, 158, 11, 0.2);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            padding: 8px 16px;
+            border-radius: 40px;
+            color: #f59e0b;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .admin-btn:hover {
+            background: #f59e0b;
+            color: white;
         }
 
         .notification-badge {
@@ -1196,8 +1193,8 @@
             <div class="user-info" id="userInfo" style="display: none;">
                 <span class="user-name" id="userNameDisplay"></span>
                 <div class="admin-btn-container" id="adminBtnContainer">
-                    <button class="admin-flag" id="adminFlagBtn">
-                        <i class="fas fa-flag-checkered"></i> 
+                    <button class="admin-btn" onclick="showAdminPasscodeModal()">
+                        <i class="fas fa-shield-alt"></i> Admin
                     </button>
                     <span class="notification-badge" id="adminNotificationBadge" style="display: none;">0</span>
                 </div>
@@ -1265,7 +1262,7 @@
             <div class="hero-content">
                 <div class="hero-badge">
                     <span class="badge-pulse"></span>
-                    Nigeria's Cheap Data
+                    Nigeria's Cheapest Data
                 </div>
                 <h1 class="hero-title">
                     Buy Data<br>
@@ -1458,10 +1455,28 @@
 
         <div class="container">
             <div class="section-header">
-                <span class="section-tag">ONSLOT</span>
-                <h2>CHEAP THAT WILL PUT A SMILE ON UR FACE</h2>
+                <span class="section-tag">Why Choose Us</span>
+                <h2>Fast & Reliable</h2>
             </div>
-          
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-bolt"></i></div>
+                    <h4>Instant Delivery</h4>
+                    <p>Get your data in seconds</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
+                    <h4>100% Guaranteed</h4>
+                    <p>Every transaction is secure</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-headset"></i></div>
+                    <h4>24/7 Support</h4>
+                    <p>We're here to help you</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Modals -->
     <div class="modal" id="adminPasscodeModal">
@@ -1614,15 +1629,24 @@
     </footer>
 
     <script>
+       // ============================================
+// SUPABASE CONFIGURATION
+// ============================================
+const SUPABASE_URL = "https://onslot.supabase.co";  // Your actual project URL
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_JgG_LKW5wVbQhnY4fykeGg_5xiGcYKS";  // Your onslot publishable key
+
+// Initialize Supabase client
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+        
         // ============================================
         // SITE URL
         // ============================================
         const SITE_URL = "https://onslot.onrender.com";
 
         // ============================================
-        // ADMIN FLAG - Hidden password protection
+        // ADMIN PASSCODE
         // ============================================
-        const ADMIN_FLAG_PASSWORD = "onslotadmin2024";
+        const ADMIN_PASSCODE = "12345";
         let isAdminAuthenticated = false;
 
         // ============================================
@@ -1644,6 +1668,204 @@
         let selectedBank = "";
         let uploadedReceipt = null;
         let uploadedReceiptData = null;
+        let currentUser = null;
+        let pendingOrders = [];
+        let activeNetwork = null;
+        let selectedData = {};
+
+        // ============================================
+        // SUPABASE SYNC FUNCTIONS
+        // ============================================
+        
+        // Check if user exists in Supabase
+        async function checkUserExists(email) {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', email)
+                .single();
+            
+            if (error && error.code !== 'PGRST116') {
+                console.error("Error checking user:", error);
+                return null;
+            }
+            return data;
+        }
+        
+        // Create new user in Supabase
+        async function createUserInSupabase(userData) {
+            const { data, error } = await supabase
+                .from('users')
+                .insert([{
+                    email: userData.email,
+                    name: userData.name,
+                    phone: userData.phone,
+                    password: userData.password,
+                    referral_code: userData.referralCode,
+                    referral_count: 0,
+                    referral_reward_mb: 0,
+                    referrals_needed: 5,
+                    got_free_data: userData.gotFreeData || false,
+                    free_data_claimed: userData.freeDataClaimed || false,
+                    reward_claimed: false,
+                    promo_ended_shown: false
+                }])
+                .select();
+            
+            if (error) {
+                console.error("Error creating user:", error);
+                return null;
+            }
+            return data?.[0];
+        }
+        
+        // Update user in Supabase
+        async function updateUserInSupabase(email, updates) {
+            const { data, error } = await supabase
+                .from('users')
+                .update(updates)
+                .eq('email', email)
+                .select();
+            
+            if (error) {
+                console.error("Error updating user:", error);
+                return null;
+            }
+            return data?.[0];
+        }
+        
+        // Get user from Supabase by email
+        async function getUserFromSupabase(email) {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', email)
+                .single();
+            
+            if (error) {
+                console.error("Error getting user:", error);
+                return null;
+            }
+            return data;
+        }
+        
+        // Save referral in Supabase
+        async function saveReferralInSupabase(referrerEmail, referredEmail) {
+            const { data, error } = await supabase
+                .from('referrals')
+                .insert([{
+                    referrer_email: referrerEmail,
+                    referred_email: referredEmail,
+                    status: 'completed'
+                }])
+                .select();
+            
+            if (error) {
+                console.error("Error saving referral:", error);
+                return null;
+            }
+            return data;
+        }
+        
+        // Get referrals for a user from Supabase
+        async function getReferralsFromSupabase(email) {
+            const { data, error } = await supabase
+                .from('referrals')
+                .select('*')
+                .eq('referrer_email', email);
+            
+            if (error) {
+                console.error("Error getting referrals:", error);
+                return [];
+            }
+            return data;
+        }
+        
+        // Save order in Supabase
+        async function saveOrderInSupabase(order) {
+            const { data, error } = await supabase
+                .from('orders')
+                .insert([{
+                    order_id: order.id.toString(),
+                    user_email: order.userEmail,
+                    customer_name: order.customerName,
+                    phone: order.phone,
+                    network: order.network,
+                    plan: order.plan,
+                    amount: order.amount,
+                    transaction_ref: order.transactionRef,
+                    payment_method: order.paymentMethod,
+                    bank_name: order.bankName,
+                    receipt_image: order.receiptImage,
+                    status: order.status
+                }])
+                .select();
+            
+            if (error) {
+                console.error("Error saving order:", error);
+                return null;
+            }
+            return data;
+        }
+        
+        // Get orders from Supabase
+        async function getOrdersFromSupabase() {
+            const { data, error } = await supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error("Error getting orders:", error);
+                return [];
+            }
+            return data;
+        }
+        
+        // Update order status in Supabase
+        async function updateOrderStatusInSupabase(orderId, status) {
+            const { data, error } = await supabase
+                .from('orders')
+                .update({ status: status })
+                .eq('order_id', orderId)
+                .select();
+            
+            if (error) {
+                console.error("Error updating order:", error);
+                return null;
+            }
+            return data;
+        }
+        
+        // ============================================
+        // FREE DATA TRACKING (Sync with Supabase)
+        // ============================================
+        let freeSignupCount = 0;
+        let freeSignupUsers = [];
+        
+        async function loadFreeDataStats() {
+            const { data, error } = await supabase
+                .from('users')
+                .select('email')
+                .eq('got_free_data', true);
+            
+            if (!error && data) {
+                freeSignupUsers = data.map(u => u.email);
+                freeSignupCount = freeSignupUsers.length;
+                updateFreeDataBanner();
+            }
+        }
+        
+        async function markUserGotFreeData(email) {
+            if (!freeSignupUsers.includes(email) && freeSignupCount < MAX_FREE_SIGNUPS) {
+                freeSignupUsers.push(email);
+                freeSignupCount++;
+                await updateUserInSupabase(email, { got_free_data: true });
+                updateFreeDataBanner();
+                return true;
+            }
+            return false;
+        }
 
         // ============================================
         // PAYMENT MODAL FUNCTIONS
@@ -1690,7 +1912,6 @@
             document.getElementById("selectedBankDisplay").style.display = "block";
             document.getElementById("customBankInput").value = bankName;
             
-            // Highlight selected bank in list
             document.querySelectorAll('.bank-option').forEach(opt => {
                 opt.classList.remove('selected');
                 if (opt.textContent === bankName) {
@@ -1750,8 +1971,6 @@
         // REFERRAL & FREE DATA TRACKING
         // ============================================
         const MAX_FREE_SIGNUPS = 15;
-        let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
-        let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
 
         function updateFreeDataBanner() {
             const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
@@ -1785,45 +2004,35 @@
             return `${prefix}${random}`;
         }
 
-        function saveReferralRelationship(newUserEmail, referrerCode) {
+        async function saveReferralRelationship(newUserEmail, referrerCode) {
             if (!referrerCode) return null;
             
-            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            const referrer = users.find(u => u.referralCode === referrerCode);
+            const users = await supabase
+                .from('users')
+                .select('*')
+                .eq('referral_code', referrerCode)
+                .single();
             
-            if (referrer) {
-                const referrals = JSON.parse(localStorage.getItem("onslot_referrals") || "[]");
-                referrals.push({
-                    referrerEmail: referrer.email,
-                    referredEmail: newUserEmail,
-                    date: new Date().toISOString(),
-                    status: "completed"
-                });
-                localStorage.setItem("onslot_referrals", JSON.stringify(referrals));
+            if (users.data) {
+                const referrer = users.data;
+                await saveReferralInSupabase(referrer.email, newUserEmail);
                 
-                const newCode = generateNewReferralCode(referrer.referralCode);
-                const userIndex = users.findIndex(u => u.email === referrer.email);
-                if (userIndex !== -1) {
-                    users[userIndex].referralCode = newCode;
-                    localStorage.setItem("onslot_users", JSON.stringify(users));
-                    
-                    if (currentUser && currentUser.email === referrer.email) {
-                        currentUser.referralCode = newCode;
-                        localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                        displayReferralInfo();
-                    }
+                const newCode = generateNewReferralCode(referrer.referral_code);
+                await updateUserInSupabase(referrer.email, { referral_code: newCode });
+                
+                if (currentUser && currentUser.email === referrer.email) {
+                    currentUser.referralCode = newCode;
                 }
                 
-                updateReferrerRewards(referrer.email);
+                await updateReferrerRewards(referrer.email);
                 return referrer.email;
             }
             return null;
         }
 
-        function updateReferrerRewards(referrerEmail) {
-            const referrals = JSON.parse(localStorage.getItem("onslot_referrals") || "[]");
-            const completedReferrals = referrals.filter(r => r.referrerEmail === referrerEmail && r.status === "completed");
-            const referralCount = completedReferrals.length;
+        async function updateReferrerRewards(referrerEmail) {
+            const referrals = await getReferralsFromSupabase(referrerEmail);
+            const referralCount = referrals.length;
             
             let rewardMB = 0;
             let neededReferrals = 5;
@@ -1843,30 +2052,25 @@
                 if (neededReferrals < 0) neededReferrals = 0;
             }
             
-            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            const userIndex = users.findIndex(u => u.email === referrerEmail);
-            if (userIndex !== -1) {
-                users[userIndex].referralCount = referralCount;
-                users[userIndex].referralRewardMB = rewardMB;
-                users[userIndex].referralsNeeded = neededReferrals;
-                localStorage.setItem("onslot_users", JSON.stringify(users));
-                
-                if (currentUser && currentUser.email === referrerEmail && rewardMB > 0 && !currentUser.rewardClaimed) {
-                    currentUser.pendingReward = rewardMB;
-                    currentUser.rewardMessage = rewardMessage;
-                    localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                    setTimeout(() => {
-                        showRewardClaimModal(rewardMB, rewardMessage);
-                    }, 1000);
-                }
-                
-                if (currentUser && currentUser.email === referrerEmail) {
-                    currentUser.referralCount = referralCount;
-                    currentUser.referralRewardMB = rewardMB;
-                    currentUser.referralsNeeded = neededReferrals;
-                    localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                    displayReferralInfo();
-                }
+            await updateUserInSupabase(referrerEmail, { 
+                referral_count: referralCount,
+                referral_reward_mb: rewardMB,
+                referrals_needed: neededReferrals
+            });
+            
+            if (currentUser && currentUser.email === referrerEmail && rewardMB > 0 && !currentUser.rewardClaimed) {
+                currentUser.pendingReward = rewardMB;
+                currentUser.rewardMessage = rewardMessage;
+                setTimeout(() => {
+                    showRewardClaimModal(rewardMB, rewardMessage);
+                }, 1000);
+            }
+            
+            if (currentUser && currentUser.email === referrerEmail) {
+                currentUser.referralCount = referralCount;
+                currentUser.referralRewardMB = rewardMB;
+                currentUser.referralsNeeded = neededReferrals;
+                displayReferralInfo();
             }
         }
 
@@ -1913,18 +2117,10 @@
                 
                 if (result.success) {
                     showToast(`✅ ${rewardMB}MB reward data sent to ${phoneNumber}!`, "success");
-                    
-                    const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                    const userIndex = users.findIndex(u => u.email === currentUser.email);
-                    if (userIndex !== -1) {
-                        users[userIndex].rewardClaimed = true;
-                        users[userIndex].pendingReward = 0;
-                        localStorage.setItem("onslot_users", JSON.stringify(users));
-                        if (currentUser) {
-                            currentUser.rewardClaimed = true;
-                            currentUser.pendingReward = 0;
-                            localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                        }
+                    await updateUserInSupabase(currentUser.email, { reward_claimed: true });
+                    if (currentUser) {
+                        currentUser.rewardClaimed = true;
+                        currentUser.pendingReward = 0;
                     }
                     closeRewardClaimModal();
                 } else {
@@ -1955,13 +2151,7 @@
                 if (!displayCode || displayCode === "N/A" || displayCode === "undefined") {
                     displayCode = generateReferralCode(currentUser.name, currentUser.email);
                     currentUser.referralCode = displayCode;
-                    localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                    const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                    const userIndex = users.findIndex(u => u.email === currentUser.email);
-                    if (userIndex !== -1) {
-                        users[userIndex].referralCode = displayCode;
-                        localStorage.setItem("onslot_users", JSON.stringify(users));
-                    }
+                    updateUserInSupabase(currentUser.email, { referral_code: displayCode });
                 }
                 referralCodeSpan.textContent = displayCode;
             }
@@ -2034,11 +2224,6 @@
                 glo: { 200: "G200", 300: "G300", 700: "G700", 1024: "G1024" }
             }
         };
-
-        let currentUser = null;
-        let pendingOrders = [];
-        let activeNetwork = null;
-        let selectedData = {};
 
         // ============================================
         // NETWORK CARD FUNCTIONS
@@ -2147,7 +2332,7 @@
             document.getElementById("signupForm").style.display = "block";
         }
 
-        function signup() {
+        async function signup() {
             const name = document.getElementById("signupName").value;
             const email = document.getElementById("signupEmail").value;
             const phone = document.getElementById("signupPhone").value;
@@ -2159,8 +2344,9 @@
                 return;
             }
 
-            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            if (users.find(u => u.email === email)) {
+            // Check if user already exists in Supabase
+            const existingUser = await checkUserExists(email);
+            if (existingUser) {
                 showToast("Email already registered", "error");
                 return;
             }
@@ -2171,24 +2357,21 @@
             
             if (freeSignupCount < MAX_FREE_SIGNUPS && !freeSignupUsers.includes(email)) {
                 gotFreeData = true;
-                freeSignupCount++;
-                freeSignupUsers.push(email);
-                localStorage.setItem("onslot_free_signup_count", freeSignupCount);
-                localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
+                await markUserGotFreeData(email);
             }
             
             if (referralCode) {
-                saveReferralRelationship(email, referralCode);
+                await saveReferralRelationship(email, referralCode);
             }
             
             const newUser = { 
-                name, email, phone, password, purchases: [], referralCode: newReferralCode,
-                referralCount: 0, referralRewardMB: 0, referralsNeeded: 5,
-                gotFreeData: gotFreeData, freeDataClaimed: false
+                name, email, phone, password, 
+                referralCode: newReferralCode,
+                gotFreeData: gotFreeData,
+                freeDataClaimed: gotFreeData
             };
             
-            users.push(newUser);
-            localStorage.setItem("onslot_users", JSON.stringify(users));
+            await createUserInSupabase(newUser);
             
             showToast("Account created! Please login", "success");
             showLogin();
@@ -2198,10 +2381,9 @@
             document.getElementById("signupPhone").value = "";
             document.getElementById("signupPassword").value = "";
             document.getElementById("referralCodeInput").value = "";
-            updateFreeDataBanner();
         }
 
-        function login() {
+        async function login() {
             const email = document.getElementById("loginEmail").value;
             const password = document.getElementById("loginPassword").value;
 
@@ -2210,38 +2392,35 @@
                 return;
             }
 
-            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            const user = users.find(u => u.email === email && u.password === password);
+            const user = await getUserFromSupabase(email);
 
-            if (user) {
-                currentUser = user;
-                localStorage.setItem("onslot_current_user", JSON.stringify(user));
-                showToast("Login successful!", "success");
-                loadDashboard();
+            if (user && user.password === password) {
+                currentUser = {
+                    email: user.email,
+                    name: user.name,
+                    phone: user.phone,
+                    referralCode: user.referral_code,
+                    referralCount: user.referral_count,
+                    referralRewardMB: user.referral_reward_mb,
+                    referralsNeeded: user.referrals_needed,
+                    gotFreeData: user.got_free_data,
+                    freeDataClaimed: user.free_data_claimed,
+                    rewardClaimed: user.reward_claimed
+                };
                 
-                if (user.gotFreeData && !user.freeDataClaimed) {
+                showToast("Login successful!", "success");
+                await loadDashboard();
+                
+                if (currentUser.gotFreeData && !currentUser.freeDataClaimed) {
                     setTimeout(() => {
                         showFreeDataModal();
-                        const usersUpdate = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                        const idx = usersUpdate.findIndex(u => u.email === email);
-                        if (idx !== -1) {
-                            usersUpdate[idx].freeDataClaimed = true;
-                            localStorage.setItem("onslot_users", JSON.stringify(usersUpdate));
-                            currentUser.freeDataClaimed = true;
-                            localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                        }
+                        updateUserInSupabase(email, { free_data_claimed: true });
+                        currentUser.freeDataClaimed = true;
                     }, 500);
-                } else if (freeSignupCount >= MAX_FREE_SIGNUPS && !user.promoEndedShown) {
+                } else if (freeSignupCount >= MAX_FREE_SIGNUPS && !user.promo_ended_shown) {
                     setTimeout(() => {
                         document.getElementById("promoEndedModal").style.display = "flex";
-                        const usersUpdate = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                        const idx = usersUpdate.findIndex(u => u.email === email);
-                        if (idx !== -1) {
-                            usersUpdate[idx].promoEndedShown = true;
-                            localStorage.setItem("onslot_users", JSON.stringify(usersUpdate));
-                            currentUser.promoEndedShown = true;
-                            localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                        }
+                        updateUserInSupabase(email, { promo_ended_shown: true });
                     }, 500);
                 }
             } else {
@@ -2249,8 +2428,7 @@
             }
         }
 
-        function logout() {
-            localStorage.removeItem("onslot_current_user");
+        async function logout() {
             currentUser = null;
             isAdminAuthenticated = false;
             document.getElementById("authSection").style.display = "flex";
@@ -2260,33 +2438,15 @@
             showLogin();
         }
 
-        function loadDashboard() {
-            const savedUser = localStorage.getItem("onslot_current_user");
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
+        async function loadDashboard() {
+            if (currentUser) {
                 document.getElementById("authSection").style.display = "none";
                 document.getElementById("dashboardContent").style.display = "block";
                 document.getElementById("userInfo").style.display = "flex";
                 document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
                 
-                // Setup admin flag click handler
-                const adminFlag = document.getElementById("adminFlagBtn");
-                if (adminFlag) {
-                    adminFlag.onclick = function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const password = prompt("Enter admin access code:");
-                        if (password === ADMIN_FLAG_PASSWORD) {
-                            isAdminAuthenticated = true;
-                            showAdminPanel();
-                            showToast("Admin access granted!", "success");
-                        }
-                        // If wrong password, nothing happens - no message, no popup
-                    };
-                }
-                
-                loadPendingOrders();
-                checkUserNotifications();
+                await loadPendingOrders();
+                await checkUserNotifications();
                 displayReferralInfo();
                 updateFreeDataBanner();
                 renderBankList("");
@@ -2315,13 +2475,18 @@
             }
         }
 
+        function showAdminPasscodeModal() {
+            document.getElementById("adminPasscodeModal").style.display = "flex";
+            document.getElementById("adminPasscode").value = "";
+        }
+
         function closeAdminPasscodeModal() {
             document.getElementById("adminPasscodeModal").style.display = "none";
         }
 
         function verifyAdminPasscode() {
             const enteredCode = document.getElementById("adminPasscode").value;
-            if (enteredCode === ADMIN_FLAG_PASSWORD) {
+            if (enteredCode === ADMIN_PASSCODE) {
                 isAdminAuthenticated = true;
                 closeAdminPasscodeModal();
                 showAdminPanel();
@@ -2334,8 +2499,7 @@
 
         function showAdminPanel() {
             if (!isAdminAuthenticated) {
-                // Show the passcode modal instead of the flag prompt
-                document.getElementById("adminPasscodeModal").style.display = "flex";
+                showAdminPasscodeModal();
                 return;
             }
             document.getElementById("adminPanel").style.display = "block";
@@ -2354,15 +2518,23 @@
             }
         }
 
-        function loadPendingOrders() {
-            const saved = localStorage.getItem("onslot_pending_orders");
-            if (saved) pendingOrders = JSON.parse(saved);
-            renderPendingOrders();
-            updateNotificationBadges();
-        }
-
-        function savePendingOrders() {
-            localStorage.setItem("onslot_pending_orders", JSON.stringify(pendingOrders));
+        async function loadPendingOrders() {
+            const orders = await getOrdersFromSupabase();
+            pendingOrders = orders.map(order => ({
+                id: order.order_id,
+                customerName: order.customer_name,
+                userEmail: order.user_email,
+                phone: order.phone,
+                network: order.network,
+                plan: order.plan,
+                amount: order.amount,
+                transactionRef: order.transaction_ref,
+                timestamp: order.created_at,
+                status: order.status,
+                paymentMethod: order.payment_method,
+                bankName: order.bank_name,
+                receiptImage: order.receipt_image
+            }));
             renderPendingOrders();
             updateNotificationBadges();
         }
@@ -2402,7 +2574,7 @@
                             <p><strong>📦 Plan:</strong> ${order.plan}MB - ₦${order.amount}</p>
                             <p><strong>🌐 Network:</strong> ${order.network.toUpperCase()}</p>
                             <p><strong>💰 Transaction Ref:</strong> ${order.transactionRef}</p>
-                            <p><strong>⏰ Time:</strong> ${order.timestamp}</p>
+                            <p><strong>⏰ Time:</strong> ${new Date(order.timestamp).toLocaleString()}</p>
                             ${receiptHtml}
                             <p><span class="order-status ${statusClass}">${statusText}</span></p>
                         </div>
@@ -2427,7 +2599,7 @@
             if (!order || order.status !== "pending") return;
             
             order.status = "processing";
-            savePendingOrders();
+            renderPendingOrders();
             
             const acceptBtn = document.querySelector(`.pending-order[data-index="${index}"] .accept-btn`);
             if (acceptBtn) {
@@ -2440,49 +2612,58 @@
                 
                 if (result.success) {
                     order.status = "completed";
-                    savePendingOrders();
+                    await updateOrderStatusInSupabase(order.id, "completed");
+                    await loadPendingOrders();
                     showToast(`✅ ${order.plan}MB ${order.network.toUpperCase()} data sent to ${order.phone}!`, "success");
-                    notifyUser(order.userEmail, "success", order.plan, order.phone);
+                    await notifyUser(order.userEmail, "success", order.plan, order.phone);
                 } else {
                     order.status = "pending";
-                    savePendingOrders();
+                    await updateOrderStatusInSupabase(order.id, "pending");
+                    await loadPendingOrders();
                     showToast(`❌ Failed: ${result.message}. Order still pending.`, "error");
                 }
             } catch (error) {
                 order.status = "pending";
-                savePendingOrders();
+                await updateOrderStatusInSupabase(order.id, "pending");
+                await loadPendingOrders();
                 showToast("Error sending data. Please try again.", "error");
             }
         }
 
-        function markAsPending(index) {
+        async function markAsPending(index) {
             const order = pendingOrders[index];
             if (!order || order.status !== "pending") return;
-            notifyUser(order.userEmail, "pending", order.plan, order.phone);
+            await notifyUser(order.userEmail, "pending", order.plan, order.phone);
             showToast(`Pending notification sent to ${order.customerName}`, "warning");
         }
 
-        function declineOrder(index) {
+        async function declineOrder(index) {
             const order = pendingOrders[index];
             if (!order || order.status !== "pending") return;
             if (confirm(`Decline order for ${order.customerName}? This will notify them that payment was declined.`)) {
                 order.status = "declined";
-                savePendingOrders();
-                notifyUser(order.userEmail, "declined", order.plan, order.phone);
+                await updateOrderStatusInSupabase(order.id, "declined");
+                await loadPendingOrders();
+                await notifyUser(order.userEmail, "declined", order.plan, order.phone);
                 showToast(`Order declined. Notification sent to ${order.customerName}`, "error");
             }
         }
 
-        function notifyUser(userEmail, type, plan, phone) {
-            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
-            notifications.unshift({
-                id: Date.now(), userEmail: userEmail, type: type, plan: plan, phone: phone,
-                message: type === "success" ? "Your payment has been confirmed and data has been sent!" :
-                          type === "pending" ? "There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction." :
-                          "Your payment has been declined. Please contact support for assistance.",
-                read: false, timestamp: new Date().toLocaleString()
-            });
-            localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
+        async function notifyUser(userEmail, type, plan, phone) {
+            const { error } = await supabase
+                .from('notifications')
+                .insert([{
+                    user_email: userEmail,
+                    type: type,
+                    plan: plan,
+                    phone: phone,
+                    message: type === "success" ? "Your payment has been confirmed and data has been sent!" :
+                              type === "pending" ? "There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction." :
+                              "Your payment has been declined. Please contact support for assistance.",
+                    read: false
+                }]);
+            
+            if (error) console.error("Error saving notification:", error);
             
             if (currentUser && currentUser.email === userEmail) {
                 if (type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
@@ -2491,19 +2672,23 @@
             }
         }
 
-        function checkUserNotifications() {
+        async function checkUserNotifications() {
             if (!currentUser) return;
-            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
-            const userNotifications = notifications.filter(n => n.userEmail === currentUser.email && !n.read);
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('*')
+                .eq('user_email', currentUser.email)
+                .eq('read', false)
+                .order('created_at', { ascending: false });
             
-            if (userNotifications.length > 0) {
-                const latest = userNotifications[0];
-                if (latest.type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
-                else if (latest.type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
-                else if (latest.type === "success") document.getElementById("successNotificationModal").style.display = "flex";
-                latest.read = true;
-                localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
-            }
+            if (error || !data || data.length === 0) return;
+            
+            const latest = data[0];
+            if (latest.type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
+            else if (latest.type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
+            else if (latest.type === "success") document.getElementById("successNotificationModal").style.display = "flex";
+            
+            await supabase.from('notifications').update({ read: true }).eq('id', latest.id);
         }
 
         function processPurchase(network) {
@@ -2521,7 +2706,7 @@
             document.getElementById("paymentModal").style.display = "flex";
         }
 
-        function submitPaymentConfirmation() {
+        async function submitPaymentConfirmation() {
             const transactionRef = document.getElementById("transactionRef").value;
             const senderName = document.getElementById("senderName").value;
             const customBank = document.getElementById("customBankInput").value;
@@ -2544,17 +2729,23 @@
             
             const purchase = window.currentPurchase;
             const newOrder = {
-                id: Date.now(), customerName: senderName, userEmail: currentUser.email,
-                phone: purchase.phone, network: purchase.network, plan: purchase.plan.mb,
-                amount: purchase.plan.price, transactionRef: transactionRef,
-                timestamp: new Date().toLocaleString(), status: "pending",
+                id: Date.now().toString(),
+                customerName: senderName,
+                userEmail: currentUser.email,
+                phone: purchase.phone,
+                network: purchase.network,
+                plan: purchase.plan.mb,
+                amount: purchase.plan.price,
+                transactionRef: transactionRef,
+                timestamp: new Date().toISOString(),
+                status: "pending",
                 paymentMethod: selectedPaymentMethod,
                 bankName: bankName,
                 receiptImage: uploadedReceiptData || null
             };
             
-            pendingOrders.unshift(newOrder);
-            savePendingOrders();
+            await saveOrderInSupabase(newOrder);
+            await loadPendingOrders();
             closePaymentModal();
             showToast("Payment submitted! Admin will verify your payment.", "success");
             
@@ -2616,8 +2807,13 @@
         function closeDeclinedModal() { document.getElementById("declinedNotificationModal").style.display = "none"; }
         function closeSuccessNotificationModal() { document.getElementById("successNotificationModal").style.display = "none"; }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            loadDashboard();
+        document.addEventListener("DOMContentLoaded", async () => {
+            await loadFreeDataStats();
+            const savedUser = localStorage.getItem("onslot_current_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                await loadDashboard();
+            }
             updateFreeDataBanner();
         });
     </script>
