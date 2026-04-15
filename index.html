@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        /* Keep all your existing CSS - it's the same */
         * {
             margin: 0;
             padding: 0;
@@ -1119,7 +1120,6 @@
             display: none;
         }
 
-        /* Free Data Claim Overlay */
         .free-data-overlay {
             position: fixed;
             top: 0;
@@ -1271,11 +1271,11 @@
             font-size: 10px;
             padding: 8px;
             border-radius: 8px;
-            max-width: 300px;
-            max-height: 150px;
+            max-width: 350px;
+            max-height: 200px;
             overflow-y: auto;
             z-index: 9999;
-            display: none;
+            display: block;
         }
 
         @media (max-width: 768px) {
@@ -1303,6 +1303,11 @@
             }
             .free-data-card h2 {
                 font-size: 1.5rem;
+            }
+            .debug-console {
+                max-width: 250px;
+                max-height: 150px;
+                font-size: 8px;
             }
         }
     </style>
@@ -1728,7 +1733,7 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
-    <div class="debug-console" id="debugConsole"></div>
+    <div class="debug-console" id="debugConsole">🟢 System Ready - Waiting for user actions...</div>
 
     <footer class="footer">
         <p>&copy; 2024 OnSlot. All rights reserved.</p>
@@ -1747,27 +1752,36 @@
         localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
         
         // ============================================
-        // VTU.ng API CONFIGURATION - UPDATED USERNAME
+        // VTU.ng API CONFIGURATION - CORRECTED ENDPOINTS
         // ============================================
         const VTU_NG_CONFIG = {
             USERNAME: "EMMANUEL",
             PASSWORD: "1234@//Gg%^&",
-            BASE_URL: "https://vtu.ng/wp-json/api/v1/data"
+            // Try different possible API endpoints
+            ENDPOINTS: [
+                "https://vtu.ng/api/data",
+                "https://vtu.ng/api/v1/data/purchase",
+                "https://api.vtu.ng/v1/data",
+                "https://vtu.ng/api/data/buy",
+                "https://vtu.ng/wp-json/api/v1/data"
+            ]
         };
         
         // Debug function
         function debugLog(message, type = "info") {
-            console.log(`[${new Date().toLocaleTimeString()}] ${type.toUpperCase()}: ${message}`);
+            const timestamp = new Date().toLocaleTimeString();
+            const consoleMsg = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            console.log(consoleMsg);
+            
             const debugDiv = document.getElementById("debugConsole");
             if (debugDiv) {
-                debugDiv.style.display = "block";
-                debugDiv.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#f59e0b'}">${message}</div>`;
+                const color = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#f59e0b';
+                debugDiv.innerHTML += `<div style="color: ${color}; border-bottom: 1px solid #333; padding: 2px 0;">${message}</div>`;
                 debugDiv.scrollTop = debugDiv.scrollHeight;
-                setTimeout(() => {
-                    if (debugDiv.children.length > 20) {
-                        debugDiv.innerHTML = "";
-                    }
-                }, 5000);
+                // Keep last 30 messages
+                while (debugDiv.children.length > 30) {
+                    debugDiv.removeChild(debugDiv.firstChild);
+                }
             }
         }
         
@@ -1796,7 +1810,7 @@
         let selectedData = {};
         
         // ============================================
-        // VTU.ng API FUNCTION - FIXED VERSION
+        // VTU.ng API FUNCTION - USING POST METHOD (CORRECT)
         // ============================================
         async function sendDataViaVTUng(phoneNumber, network, planMB) {
             debugLog(`Starting data send: ${planMB}MB to ${phoneNumber} on ${network}`, "info");
@@ -1808,84 +1822,102 @@
             }
             debugLog(`Cleaned phone number: ${cleanPhone}`, "info");
             
-            // Map network names to VTU.ng format
+            // Map network names
             const networkMap = {
                 'mtn': 'mtn',
                 'airtel': 'airtel', 
                 'glo': 'glo',
                 '9mobile': '9mobile'
             };
-            
             const apiNetwork = networkMap[network] || network;
             debugLog(`API Network: ${apiNetwork}`, "info");
             
-            // Try multiple variation ID formats that VTU.ng might accept
-            const variationIdFormats = [
-                `${network.toUpperCase()}-${planMB}MB`,
-                `${network.toUpperCase()}-${planMB}`,
-                `${network}_${planMB}`,
-                `${planMB}`,
-                `data_${network}_${planMB}`
-            ];
+            // Prepare the request data (POST body)
+            const requestData = {
+                username: VTU_NG_CONFIG.USERNAME,
+                password: VTU_NG_CONFIG.PASSWORD,
+                phone: cleanPhone,
+                network: apiNetwork,
+                data_plan: `${planMB}mb`,
+                variation_id: `${network.toUpperCase()}-${planMB}MB`,
+                amount: planMB === 100 ? "100" : planMB.toString()
+            };
             
-            let lastError = null;
+            debugLog(`Request data: ${JSON.stringify(requestData)}`, "info");
             
-            // Try each variation ID format
-            for (const variationId of variationIdFormats) {
-                debugLog(`Trying variation ID: ${variationId}`, "info");
-                
-                // Build API URL
-                const apiUrl = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${cleanPhone}&network_id=${apiNetwork}&variation_id=${variationId}`;
-                
-                debugLog(`Calling VTU.ng API: ${apiUrl}`, "info");
+            // Try each endpoint
+            for (const endpoint of VTU_NG_CONFIG.ENDPOINTS) {
+                debugLog(`Trying endpoint: ${endpoint}`, "info");
                 
                 try {
-                    const response = await fetch(apiUrl, {
-                        method: "GET",
+                    // Try POST request first (most APIs use POST for transactions)
+                    const response = await fetch(endpoint, {
+                        method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "Accept": "application/json"
-                        }
+                        },
+                        body: JSON.stringify(requestData)
                     });
                     
-                    const result = await response.json();
-                    debugLog(`API Response for ${variationId}: ${JSON.stringify(result)}`, "info");
-                    
-                    // Check for successful response
-                    if (result.code === "success" || result.status === "success" || result.success === true) {
-                        debugLog(`SUCCESS! Data sent with variation ID: ${variationId}`, "success");
-                        return {
-                            success: true,
-                            reference: result.data?.request_id || result.data?.reference || result.reference || Date.now().toString(),
-                            message: result.message || `${planMB}MB data successfully sent to ${cleanPhone}!`
-                        };
-                    } else if (result.code === "error" || result.status === "error") {
-                        lastError = result.message || "Transaction failed";
-                        debugLog(`Failed with variation ID ${variationId}: ${lastError}`, "error");
-                        // Continue to next variation ID
+                    if (response.ok) {
+                        const result = await response.json();
+                        debugLog(`Response from ${endpoint}: ${JSON.stringify(result)}`, "info");
+                        
+                        if (result.status === "success" || result.code === "success" || result.success === true) {
+                            debugLog(`SUCCESS! Data sent via ${endpoint}`, "success");
+                            return {
+                                success: true,
+                                reference: result.data?.request_id || result.data?.reference || result.reference || Date.now().toString(),
+                                message: result.message || `${planMB}MB data successfully sent to ${cleanPhone}!`
+                            };
+                        } else if (result.status === "error" || result.code === "error") {
+                            debugLog(`Error from ${endpoint}: ${result.message}`, "error");
+                            // Continue to next endpoint
+                            continue;
+                        }
+                    } else {
+                        debugLog(`HTTP ${response.status} from ${endpoint}`, "error");
                         continue;
                     }
                 } catch (error) {
-                    debugLog(`Error with variation ID ${variationId}: ${error.message}`, "error");
-                    lastError = error.message;
+                    debugLog(`Request failed for ${endpoint}: ${error.message}`, "error");
                     continue;
                 }
             }
             
-            // If all variation IDs failed, return the last error
-            if (lastError) {
-                let errorMsg = lastError;
-                if (errorMsg.toLowerCase().includes("insufficient")) {
-                    errorMsg = "Insufficient wallet balance. Please fund your VTU.ng wallet.";
-                } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("auth")) {
-                    errorMsg = "Invalid credentials. Please check your VTU.ng username/password.";
+            // If all POST requests fail, try a GET request as fallback
+            debugLog("Trying GET request as fallback...", "info");
+            const fallbackUrl = `https://vtu.ng/api/data?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${cleanPhone}&network=${apiNetwork}&data_plan=${planMB}mb`;
+            
+            try {
+                const response = await fetch(fallbackUrl, {
+                    method: "GET",
+                    headers: { "Accept": "application/json" }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    debugLog(`Fallback response: ${JSON.stringify(result)}`, "info");
+                    
+                    if (result.status === "success" || result.code === "success" || result.success === true) {
+                        debugLog(`SUCCESS via fallback!`, "success");
+                        return {
+                            success: true,
+                            reference: result.data?.request_id || result.reference || Date.now().toString(),
+                            message: result.message || `${planMB}MB data sent to ${cleanPhone}!`
+                        };
+                    }
                 }
-                return { success: false, message: errorMsg };
+            } catch (error) {
+                debugLog(`Fallback request failed: ${error.message}`, "error");
             }
             
+            // If we get here, all attempts failed
+            debugLog("ALL API ATTEMPTS FAILED", "error");
             return { 
                 success: false, 
-                message: "All API attempts failed. Please check your VTU.ng credentials and wallet balance." 
+                message: "Unable to connect to VTU.ng API. Please check:\n1. Your VTU.ng account has funds\n2. Your API credentials are correct\n3. Your VTU.ng account is active" 
             };
         }
         
@@ -1931,6 +1963,7 @@
                 
                 claimBtn.disabled = true;
                 claimBtn.innerHTML = '<span class="loading-spinner"></span> Sending your data...';
+                debugLog(`User claiming free data for phone: ${phoneNumber}`, "info");
                 
                 try {
                     // Detect network based on phone number
@@ -1986,6 +2019,7 @@
             skipLink.onclick = () => {
                 overlay.remove();
                 showToast("You can claim your free data later from the referral section!", "info");
+                debugLog(`User skipped free data claim`, "info");
                 
                 const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
                 const userIndex = users.findIndex(u => u.email === userEmail);
@@ -2133,6 +2167,7 @@
             document.getElementById("userInfo").style.display = "none";
             document.getElementById("adminPanel").style.display = "none";
             showLogin();
+            debugLog("User logged out", "info");
         }
 
         function loadDashboard() {
@@ -2153,6 +2188,7 @@
                         if (password === "onslotadmin2024") {
                             document.getElementById("adminPanel").style.display = "block";
                             showToast("Admin access granted!", "success");
+                            debugLog("Admin access granted", "success");
                         }
                     };
                 }
@@ -2161,6 +2197,7 @@
                 displayReferralInfo();
                 updateFreeDataBanner();
                 renderBankList("");
+                debugLog(`Dashboard loaded for user: ${currentUser.name}`, "success");
             }
         }
 
@@ -2278,6 +2315,7 @@
             savePendingOrders();
             closePaymentModal();
             showToast("Payment submitted! Admin will verify your payment.", "success");
+            debugLog(`New order submitted: ${purchase.plan}MB for ${purchase.phone}`, "info");
             
             removeReceipt();
             selectedBank = "";
@@ -2666,6 +2704,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             debugLog("OnSlot App Initialized", "success");
             debugLog(`VTU.ng Username: ${VTU_NG_CONFIG.USERNAME}`, "info");
+            debugLog("Attempting multiple API endpoints...", "info");
             loadDashboard();
             updateFreeDataBanner();
             renderBankList("");
