@@ -1278,7 +1278,7 @@
         </section>
 
         <div class="container">
-            <!-- Free Data Banner - Changed to 10 people -->
+            <!-- Free Data Banner - Reset to 10 people -->
             <div class="free-data-banner" id="freeDataBanner">
                 <h4><i class="fas fa-gift"></i> FREE 100MB DATA!</h4>
                 <p>First <span id="spotsLeft">10</span> people to sign up get 100MB FREE!</p>
@@ -1616,6 +1616,23 @@
 
     <script>
         // ============================================
+        // FORCE LOGOUT ALL USERS - RESET FREE DATA PROMO
+        // ============================================
+        
+        // Clear all user sessions and reset free data promo to 10 spots
+        localStorage.removeItem("onslot_current_user");
+        
+        // Reset free data promo to 10 spots
+        const MAX_FREE_SIGNUPS = 10;
+        let currentFreeCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+        
+        // If promo already had more than 10, reset it
+        if (currentFreeCount > MAX_FREE_SIGNUPS) {
+            localStorage.setItem("onslot_free_signup_count", "0");
+            localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
+        }
+        
+        // ============================================
         // SITE URL
         // ============================================
         const SITE_URL = "https://onslot.onrender.com";
@@ -1750,7 +1767,7 @@
         // ============================================
         // REFERRAL & FREE DATA TRACKING - CHANGED TO 10
         // ============================================
-        const MAX_FREE_SIGNUPS = 10;
+        // Use the reset value from above
         let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
         let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
 

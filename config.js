@@ -1,6 +1,6 @@
 const API_CONFIG = {
     // VTU.ng uses username/password, not API keys
-    USERNAME: "EMMANUEL",  // Your VTU.ng login email/username
+    USERNAME: "emanuelizuchukwu0@gmail.com",  // Your VTU.ng login email/username
     PASSWORD: "1234@//Gg%^&",  // Your VTU.ng login password
     BASE_URL: "https://vtu.ng/wp-json/api/v1/data",
     
