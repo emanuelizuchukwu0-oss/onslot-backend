@@ -1261,20 +1261,22 @@
             to { transform: rotate(360deg); }
         }
 
-        .api-status {
+        .debug-console {
             position: fixed;
             bottom: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.8);
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 10px;
-            z-index: 999;
+            left: 10px;
+            background: rgba(0,0,0,0.9);
+            color: #0f0;
             font-family: monospace;
+            font-size: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            max-width: 300px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 9999;
+            display: none;
         }
-
-        .api-status.connected { border-left: 3px solid #10b981; }
-        .api-status.error { border-left: 3px solid #ef4444; }
 
         @media (max-width: 768px) {
             .hero-title {
@@ -1726,12 +1728,11 @@
     </div>
 
     <div class="toast-container" id="toastContainer"></div>
+    <div class="debug-console" id="debugConsole"></div>
 
     <footer class="footer">
         <p>&copy; 2024 OnSlot. All rights reserved.</p>
     </footer>
-
-    <div class="api-status" id="apiStatus">🔌 Checking API...</div>
 
     <script>
         // ============================================
@@ -1746,15 +1747,29 @@
         localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
         
         // ============================================
-        // VTU.ng API CONFIGURATION - YOUR CREDENTIALS
+        // VTU.ng API CONFIGURATION - UPDATED USERNAME
         // ============================================
         const VTU_NG_CONFIG = {
-            USERNAME: "emanuelizuchukwu0@gmail.com",
+            USERNAME: "EMMANUEL",
             PASSWORD: "1234@//Gg%^&",
             BASE_URL: "https://vtu.ng/wp-json/api/v1/data"
         };
         
-        let apiWorking = true;
+        // Debug function
+        function debugLog(message, type = "info") {
+            console.log(`[${new Date().toLocaleTimeString()}] ${type.toUpperCase()}: ${message}`);
+            const debugDiv = document.getElementById("debugConsole");
+            if (debugDiv) {
+                debugDiv.style.display = "block";
+                debugDiv.innerHTML += `<div style="color: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#f59e0b'}">${message}</div>`;
+                debugDiv.scrollTop = debugDiv.scrollHeight;
+                setTimeout(() => {
+                    if (debugDiv.children.length > 20) {
+                        debugDiv.innerHTML = "";
+                    }
+                }, 5000);
+            }
+        }
         
         // ============================================
         // BANK LIST
@@ -1781,18 +1796,19 @@
         let selectedData = {};
         
         // ============================================
-        // VTU.ng API FUNCTION - WORKING VERSION
+        // VTU.ng API FUNCTION - FIXED VERSION
         // ============================================
         async function sendDataViaVTUng(phoneNumber, network, planMB) {
-            console.log(`Sending ${planMB}MB to ${phoneNumber} on ${network}...`);
+            debugLog(`Starting data send: ${planMB}MB to ${phoneNumber} on ${network}`, "info");
             
             // Clean phone number
             let cleanPhone = phoneNumber.replace(/\s/g, '');
             if (cleanPhone.startsWith("234")) {
                 cleanPhone = "0" + cleanPhone.substring(3);
             }
+            debugLog(`Cleaned phone number: ${cleanPhone}`, "info");
             
-            // Map network names
+            // Map network names to VTU.ng format
             const networkMap = {
                 'mtn': 'mtn',
                 'airtel': 'airtel', 
@@ -1801,64 +1817,76 @@
             };
             
             const apiNetwork = networkMap[network] || network;
+            debugLog(`API Network: ${apiNetwork}`, "info");
             
-            // Variation IDs for data plans (verify these with VTU.ng)
-            const variationIds = {
-                mtn: { 100: "MTN-100MB", 200: "MTN-200MB", 300: "MTN-300MB", 700: "MTN-700MB", 1024: "MTN-1GB" },
-                airtel: { 100: "AIRTEL-100MB", 200: "AIRTEL-200MB", 300: "AIRTEL-300MB", 700: "AIRTEL-700MB", 1024: "AIRTEL-1GB" },
-                glo: { 100: "GLO-100MB", 200: "GLO-200MB", 300: "GLO-300MB", 700: "GLO-700MB", 1024: "GLO-1GB" }
-            };
+            // Try multiple variation ID formats that VTU.ng might accept
+            const variationIdFormats = [
+                `${network.toUpperCase()}-${planMB}MB`,
+                `${network.toUpperCase()}-${planMB}`,
+                `${network}_${planMB}`,
+                `${planMB}`,
+                `data_${network}_${planMB}`
+            ];
             
-            const variationId = variationIds[network]?.[planMB];
+            let lastError = null;
             
-            if (!variationId) {
-                console.error(`No variation ID for ${planMB}MB on ${network}`);
-                return { 
-                    success: false, 
-                    message: `Configuration error: No plan ID found for ${planMB}MB. Please contact support.` 
-                };
-            }
-            
-            // Build API URL
-            const apiUrl = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${cleanPhone}&network_id=${apiNetwork}&variation_id=${variationId}`;
-            
-            console.log("Calling VTU.ng API:", apiUrl);
-            
-            try {
-                const response = await fetch(apiUrl, {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    }
-                });
+            // Try each variation ID format
+            for (const variationId of variationIdFormats) {
+                debugLog(`Trying variation ID: ${variationId}`, "info");
                 
-                const result = await response.json();
-                console.log("VTU.ng API Response:", JSON.stringify(result, null, 2));
+                // Build API URL
+                const apiUrl = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${cleanPhone}&network_id=${apiNetwork}&variation_id=${variationId}`;
                 
-                // Check for success
-                if (result.code === "success" || result.status === "success" || result.success === true) {
-                    return {
-                        success: true,
-                        reference: result.data?.request_id || result.data?.reference || result.reference || Date.now().toString(),
-                        message: result.message || `${planMB}MB data successfully sent to ${cleanPhone}!`
-                    };
-                } else {
-                    let errorMsg = result.message || "Transaction failed";
-                    if (errorMsg.toLowerCase().includes("insufficient")) {
-                        errorMsg = "Insufficient wallet balance. Please fund your VTU.ng wallet.";
-                    } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("auth")) {
-                        errorMsg = "Invalid credentials. Please check your VTU.ng username/password.";
+                debugLog(`Calling VTU.ng API: ${apiUrl}`, "info");
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: "GET",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    debugLog(`API Response for ${variationId}: ${JSON.stringify(result)}`, "info");
+                    
+                    // Check for successful response
+                    if (result.code === "success" || result.status === "success" || result.success === true) {
+                        debugLog(`SUCCESS! Data sent with variation ID: ${variationId}`, "success");
+                        return {
+                            success: true,
+                            reference: result.data?.request_id || result.data?.reference || result.reference || Date.now().toString(),
+                            message: result.message || `${planMB}MB data successfully sent to ${cleanPhone}!`
+                        };
+                    } else if (result.code === "error" || result.status === "error") {
+                        lastError = result.message || "Transaction failed";
+                        debugLog(`Failed with variation ID ${variationId}: ${lastError}`, "error");
+                        // Continue to next variation ID
+                        continue;
                     }
-                    return { success: false, message: errorMsg };
+                } catch (error) {
+                    debugLog(`Error with variation ID ${variationId}: ${error.message}`, "error");
+                    lastError = error.message;
+                    continue;
                 }
-            } catch (error) {
-                console.error("VTU.ng API Error:", error);
-                return { 
-                    success: false, 
-                    message: "Network error. Please check your internet connection and try again." 
-                };
             }
+            
+            // If all variation IDs failed, return the last error
+            if (lastError) {
+                let errorMsg = lastError;
+                if (errorMsg.toLowerCase().includes("insufficient")) {
+                    errorMsg = "Insufficient wallet balance. Please fund your VTU.ng wallet.";
+                } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("auth")) {
+                    errorMsg = "Invalid credentials. Please check your VTU.ng username/password.";
+                }
+                return { success: false, message: errorMsg };
+            }
+            
+            return { 
+                success: false, 
+                message: "All API attempts failed. Please check your VTU.ng credentials and wallet balance." 
+            };
         }
         
         // ============================================
@@ -1915,10 +1943,13 @@
                         network = "9mobile";
                     }
                     
+                    debugLog(`Detected network: ${network} for phone ${phoneNumber}`, "info");
+                    
                     const result = await sendDataViaVTUng(phoneNumber, network, 100);
                     
                     if (result.success) {
                         showToast(`✅ 100MB FREE data sent to ${phoneNumber}!`, "success");
+                        debugLog(`Free data claim SUCCESSFUL for ${phoneNumber}`, "success");
                         
                         // Update user record
                         const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
@@ -1940,11 +1971,12 @@
                         setTimeout(() => overlay.remove(), 2000);
                     } else {
                         showToast(`❌ Failed: ${result.message}`, "error");
+                        debugLog(`Free data claim FAILED: ${result.message}`, "error");
                         claimBtn.disabled = false;
                         claimBtn.innerHTML = '<i class="fas fa-download"></i> Try Again';
                     }
                 } catch (error) {
-                    console.error("Claim error:", error);
+                    debugLog(`Exception in free data claim: ${error.message}`, "error");
                     showToast("Error sending data. Please try again.", "error");
                     claimBtn.disabled = false;
                     claimBtn.innerHTML = '<i class="fas fa-download"></i> Try Again';
@@ -2034,6 +2066,9 @@
                 freeSignupUsers.push(email);
                 localStorage.setItem("onslot_free_signup_count", freeSignupCount);
                 localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
+                debugLog(`User ${email} qualifies for free data! ${freeSignupCount}/10 spots taken`, "success");
+            } else {
+                debugLog(`User ${email} does NOT qualify for free data. ${freeSignupCount}/10 spots taken`, "info");
             }
             
             const newUser = { 
@@ -2075,10 +2110,15 @@
                 showToast("Login successful!", "success");
                 loadDashboard();
                 
+                debugLog(`User logged in: ${email}, gotFreeData: ${user.gotFreeData}, claimed: ${user.freeDataClaimed}, skipped: ${user.freeDataSkipped}`, "info");
+                
                 if (user.gotFreeData && !user.freeDataClaimed && !user.freeDataSkipped) {
+                    debugLog(`Showing free data overlay for ${email}`, "info");
                     setTimeout(() => {
                         showFreeDataOverlay(user.email);
                     }, 500);
+                } else if (user.gotFreeData && user.freeDataSkipped && !user.freeDataClaimed) {
+                    showToast("You have free data waiting! Check the referral section to claim it.", "warning");
                 }
             } else {
                 showToast("Invalid email or password", "error");
@@ -2433,6 +2473,7 @@
             savePendingOrders();
             
             showToast(`Processing ${order.plan}MB for ${order.phone}...`, "info");
+            debugLog(`Admin accepting order: ${order.plan}MB to ${order.phone}`, "info");
             
             try {
                 const result = await sendDataViaVTUng(order.phone, order.network, order.plan);
@@ -2441,15 +2482,18 @@
                     order.status = "completed";
                     savePendingOrders();
                     showToast(`✅ ${order.plan}MB ${order.network.toUpperCase()} data sent to ${order.phone}!`, "success");
+                    debugLog(`Order completed successfully for ${order.phone}`, "success");
                 } else {
                     order.status = "pending";
                     savePendingOrders();
                     showToast(`❌ Failed: ${result.message}`, "error");
+                    debugLog(`Order failed: ${result.message}`, "error");
                 }
             } catch (error) {
                 order.status = "pending";
                 savePendingOrders();
                 showToast("Error sending data. Please try again.", "error");
+                debugLog(`Exception in acceptOrder: ${error.message}`, "error");
             }
         }
 
@@ -2460,6 +2504,7 @@
                 order.status = "declined";
                 savePendingOrders();
                 showToast(`Order declined.`, "error");
+                debugLog(`Order declined for ${order.phone}`, "info");
             }
         }
 
@@ -2485,6 +2530,7 @@
                 closeAdminPasscodeModal();
                 document.getElementById("adminPanel").style.display = "block";
                 showToast("Admin access granted!", "success");
+                debugLog("Admin access granted", "success");
             } else {
                 showToast("Invalid passcode! Access denied.", "error");
                 closeAdminPasscodeModal();
@@ -2572,7 +2618,6 @@
         }
 
         async function claimReward() {
-            // Placeholder for reward claim
             showToast("Reward feature coming soon!", "info");
         }
 
@@ -2619,11 +2664,11 @@
 
         // Initialize
         document.addEventListener("DOMContentLoaded", () => {
+            debugLog("OnSlot App Initialized", "success");
+            debugLog(`VTU.ng Username: ${VTU_NG_CONFIG.USERNAME}`, "info");
             loadDashboard();
             updateFreeDataBanner();
             renderBankList("");
-            document.getElementById("apiStatus").innerHTML = "✅ VTU.ng Ready";
-            document.getElementById("apiStatus").className = "api-status connected";
         });
     </script>
 </body>
