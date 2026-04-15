@@ -1278,10 +1278,10 @@
         </section>
 
         <div class="container">
-            <!-- Free Data Banner -->
+            <!-- Free Data Banner - Changed to 10 people -->
             <div class="free-data-banner" id="freeDataBanner">
                 <h4><i class="fas fa-gift"></i> FREE 100MB DATA!</h4>
-                <p>First <span id="spotsLeft">15</span> people to sign up get 100MB FREE!</p>
+                <p>First <span id="spotsLeft">10</span> people to sign up get 100MB FREE!</p>
             </div>
 
             <!-- Referral Section -->
@@ -1461,7 +1461,8 @@
                 <span class="section-tag">ONSLOT</span>
                 <h2>CHEAP THAT WILL PUT A SMILE ON UR FACE</h2>
             </div>
-          
+        </div>
+    </div>
 
     <!-- Modals -->
     <div class="modal" id="adminPasscodeModal">
@@ -1600,7 +1601,7 @@
             <button class="modal-close" onclick="closePromoEndedModal()"><i class="fas fa-times"></i></button>
             <div class="modal-icon" style="color: #f59e0b;"><i class="fas fa-gift"></i></div>
             <h3>Promo Ended</h3>
-            <p>The 100MB free data promo has ended. The first 15 people have already claimed their reward!</p>
+            <p>The 100MB free data promo has ended. The first 10 people have already claimed their reward!</p>
             <button class="confirm-btn" onclick="closePromoEndedModal()" style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 20px;">
                 <i class="fas fa-check"></i> OK
             </button>
@@ -1747,9 +1748,9 @@
         }
 
         // ============================================
-        // REFERRAL & FREE DATA TRACKING
+        // REFERRAL & FREE DATA TRACKING - CHANGED TO 10
         // ============================================
-        const MAX_FREE_SIGNUPS = 15;
+        const MAX_FREE_SIGNUPS = 10;
         let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
         let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
 
@@ -1938,7 +1939,7 @@
         function showFreeDataModal() {
             const modal = document.getElementById("rewardClaimModal");
             const messageSpan = document.getElementById("rewardMessage");
-            if (messageSpan) messageSpan.textContent = "🎉 Congratulations! You've received 100MB FREE data for being one of the first 15 people to sign up!";
+            if (messageSpan) messageSpan.textContent = "🎉 Congratulations! You've received 100MB FREE data for being one of the first 10 people to sign up!";
             modal.style.display = "flex";
             window.pendingRewardAmount = 100;
         }
