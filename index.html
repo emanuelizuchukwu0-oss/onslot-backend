@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        /* Your existing CSS here - keeping it exactly the same */
         * {
             margin: 0;
             padding: 0;
@@ -104,7 +105,6 @@
             font-weight: 500;
         }
 
-        /* Hidden Admin Flag - Looks like a normal icon to regular users */
         .admin-flag {
             background: rgba(30, 41, 59, 0.4);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -245,7 +245,6 @@
             margin-bottom: 12px;
         }
 
-        /* Auth Forms */
         .auth-form {
             max-width: 400px;
             margin: 0 auto;
@@ -314,7 +313,6 @@
             cursor: pointer;
         }
 
-        /* Network Cards */
         .networks-container {
             display: flex;
             flex-direction: column;
@@ -511,7 +509,6 @@
             cursor: not-allowed;
         }
 
-        /* Referral Section */
         .referral-section {
             background: rgba(15, 25, 35, 0.7);
             backdrop-filter: blur(12px);
@@ -682,7 +679,6 @@
             font-size: 0.85rem;
         }
 
-        /* Admin Panel */
         .admin-panel {
             background: rgba(15, 25, 35, 0.95);
             backdrop-filter: blur(12px);
@@ -816,7 +812,6 @@
             color: #94a3b8;
         }
 
-        /* Enhanced Payment Modal Styles */
         .payment-methods {
             display: flex;
             gap: 15px;
@@ -990,7 +985,6 @@
             border-color: #f59e0b;
         }
 
-        /* Modals */
         .modal {
             display: none;
             position: fixed;
@@ -1278,7 +1272,7 @@
         </section>
 
         <div class="container">
-            <!-- Free Data Banner - Reset to 10 people -->
+            <!-- Free Data Banner - 10 people -->
             <div class="free-data-banner" id="freeDataBanner">
                 <h4><i class="fas fa-gift"></i> FREE 100MB DATA!</h4>
                 <p>First <span id="spotsLeft">10</span> people to sign up get 100MB FREE!</p>
@@ -1478,7 +1472,6 @@
         </div>
     </div>
 
-    <!-- Enhanced Payment Modal -->
     <div class="modal" id="paymentModal">
         <div class="modal-content" style="max-width: 500px;">
             <button class="modal-close" onclick="closePaymentModal()"><i class="fas fa-times"></i></button>
@@ -1493,7 +1486,6 @@
                 <button class="copy-btn" onclick="copyAccount()">📋 Copy Account Number</button>
             </div>
 
-            <!-- Payment Method Selection -->
             <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Payment Method:</p>
             <div class="payment-methods">
                 <div class="payment-method" data-method="transfer" onclick="selectPaymentMethod('transfer')">
@@ -1506,7 +1498,6 @@
                 </div>
             </div>
 
-            <!-- Bank Selection Section -->
             <div id="bankSelectionSection">
                 <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Select Your Bank:</p>
                 <div class="bank-search">
@@ -1520,7 +1511,6 @@
                 <input type="text" id="customBankInput" class="custom-bank-input" placeholder="Or type your bank name here" style="display: none;">
             </div>
 
-            <!-- Receipt Upload Section -->
             <div class="receipt-upload">
                 <p style="font-size: 0.8rem; margin-bottom: 10px; text-align: left;">Upload Receipt/Screenshot (Optional):</p>
                 <div class="upload-area" onclick="document.getElementById('receiptInput').click()">
@@ -1616,21 +1606,27 @@
 
     <script>
         // ============================================
-        // FORCE LOGOUT ALL USERS - RESET FREE DATA PROMO
+        // FORCE LOGOUT EVERYONE - RESET ALL SESSIONS
+        // This runs immediately when the page loads
         // ============================================
         
-        // Clear all user sessions and reset free data promo to 10 spots
+        // Clear the currently logged in user
         localStorage.removeItem("onslot_current_user");
         
-        // Reset free data promo to 10 spots
-        const MAX_FREE_SIGNUPS = 10;
-        let currentFreeCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+        // Reset free signup counter to 0 (fresh start for 10 people)
+        localStorage.setItem("onslot_free_signup_count", "0");
+        localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
         
-        // If promo already had more than 10, reset it
-        if (currentFreeCount > MAX_FREE_SIGNUPS) {
-            localStorage.setItem("onslot_free_signup_count", "0");
-            localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
-        }
+        // Optionally clear all user data? No, keep existing users but they will need to log back in
+        // The 100MB promo counter is reset so the next 10 signups get free data
+        
+        // Clear admin authentication
+        sessionStorage.removeItem("admin_auth");
+        
+        // Clear any pending orders if you want a fresh start (optional - uncomment if needed)
+        // localStorage.removeItem("onslot_pending_orders");
+        // localStorage.removeItem("onslot_notifications");
+        // localStorage.removeItem("onslot_referrals");
         
         // ============================================
         // SITE URL
@@ -1708,7 +1704,6 @@
             document.getElementById("selectedBankDisplay").style.display = "block";
             document.getElementById("customBankInput").value = bankName;
             
-            // Highlight selected bank in list
             document.querySelectorAll('.bank-option').forEach(opt => {
                 opt.classList.remove('selected');
                 if (opt.textContent === bankName) {
@@ -1765,9 +1760,9 @@
         }
 
         // ============================================
-        // REFERRAL & FREE DATA TRACKING - CHANGED TO 10
+        // REFERRAL & FREE DATA TRACKING - 10 PEOPLE
         // ============================================
-        // Use the reset value from above
+        const MAX_FREE_SIGNUPS = 10;
         let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
         let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
 
@@ -2040,7 +2035,6 @@
 
         // ============================================
         // VTU.ng API CONFIGURATION
-        // !!! REPLACE WITH YOUR VTU.NG CREDENTIALS !!!
         // ============================================
         const VTU_NG_CONFIG = {
             USERNAME: "YOUR_VTU_NG_USERNAME",
@@ -2287,7 +2281,6 @@
                 document.getElementById("userInfo").style.display = "flex";
                 document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
                 
-                // Setup admin flag click handler
                 const adminFlag = document.getElementById("adminFlagBtn");
                 if (adminFlag) {
                     adminFlag.onclick = function(e) {
@@ -2299,7 +2292,6 @@
                             showAdminPanel();
                             showToast("Admin access granted!", "success");
                         }
-                        // If wrong password, nothing happens - no message, no popup
                     };
                 }
                 
@@ -2352,7 +2344,6 @@
 
         function showAdminPanel() {
             if (!isAdminAuthenticated) {
-                // Show the passcode modal instead of the flag prompt
                 document.getElementById("adminPasscodeModal").style.display = "flex";
                 return;
             }
@@ -2576,7 +2567,6 @@
             closePaymentModal();
             showToast("Payment submitted! Admin will verify your payment.", "success");
             
-            // Reset payment modal fields
             removeReceipt();
             selectedBank = "";
             document.getElementById("selectedBankDisplay").style.display = "none";
