@@ -647,37 +647,6 @@
             color: #ef4444;
         }
 
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 24px;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .feature-card {
-            background: rgba(15, 25, 35, 0.5);
-            border-radius: 20px;
-            padding: 24px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .feature-icon {
-            font-size: 32px;
-            color: #f59e0b;
-            margin-bottom: 12px;
-        }
-
-        .feature-card h4 {
-            margin-bottom: 8px;
-        }
-
-        .feature-card p {
-            color: #94a3b8;
-            font-size: 0.85rem;
-        }
-
         .admin-panel {
             background: rgba(15, 25, 35, 0.95);
             backdrop-filter: blur(12px);
@@ -1278,6 +1247,35 @@
             color: #f59e0b;
         }
 
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .api-status {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            z-index: 999;
+            font-family: monospace;
+        }
+
+        .api-status.connected { border-left: 3px solid #10b981; }
+        .api-status.error { border-left: 3px solid #ef4444; }
+
         @media (max-width: 768px) {
             .hero-title {
                 font-size: 2rem;
@@ -1733,39 +1731,33 @@
         <p>&copy; 2024 OnSlot. All rights reserved.</p>
     </footer>
 
+    <div class="api-status" id="apiStatus">🔌 Checking API...</div>
+
     <script>
         // ============================================
         // COMPLETE RESET - CLEAR EVERYTHING
-        // This runs immediately when the page loads
         // ============================================
-        
-        // Clear all user-related data
         localStorage.removeItem("onslot_current_user");
         localStorage.removeItem("onslot_users");
         localStorage.removeItem("onslot_referrals");
         localStorage.removeItem("onslot_pending_orders");
         localStorage.removeItem("onslot_notifications");
-        
-        // Reset free signup counter to 0 (fresh start for 10 people)
         localStorage.setItem("onslot_free_signup_count", "0");
         localStorage.setItem("onslot_free_signup_users", JSON.stringify([]));
         
-        // Clear admin authentication
-        sessionStorage.removeItem("admin_auth");
+        // ============================================
+        // VTU.ng API CONFIGURATION - YOUR CREDENTIALS
+        // ============================================
+        const VTU_NG_CONFIG = {
+            USERNAME: "emanuelizuchukwu0@gmail.com",
+            PASSWORD: "1234@//Gg%^&",
+            BASE_URL: "https://vtu.ng/wp-json/api/v1/data"
+        };
+        
+        let apiWorking = true;
         
         // ============================================
-        // SITE URL
-        // ============================================
-        const SITE_URL = "https://onslot.onrender.com";
-
-        // ============================================
-        // ADMIN FLAG - Hidden password protection
-        // ============================================
-        const ADMIN_FLAG_PASSWORD = "onslotadmin2024";
-        let isAdminAuthenticated = false;
-
-        // ============================================
-        // BANK LIST (All Nigerian Banks)
+        // BANK LIST
         // ============================================
         const NIGERIAN_BANKS = [
             "Access Bank", "Access Bank (Diamond)", "ALAT by Wema", "Citibank Nigeria", 
@@ -1783,11 +1775,494 @@
         let selectedBank = "";
         let uploadedReceipt = null;
         let uploadedReceiptData = null;
+        let currentUser = null;
+        let pendingOrders = [];
+        let activeNetwork = null;
+        let selectedData = {};
+        
+        // ============================================
+        // VTU.ng API FUNCTION - WORKING VERSION
+        // ============================================
+        async function sendDataViaVTUng(phoneNumber, network, planMB) {
+            console.log(`Sending ${planMB}MB to ${phoneNumber} on ${network}...`);
+            
+            // Clean phone number
+            let cleanPhone = phoneNumber.replace(/\s/g, '');
+            if (cleanPhone.startsWith("234")) {
+                cleanPhone = "0" + cleanPhone.substring(3);
+            }
+            
+            // Map network names
+            const networkMap = {
+                'mtn': 'mtn',
+                'airtel': 'airtel', 
+                'glo': 'glo',
+                '9mobile': '9mobile'
+            };
+            
+            const apiNetwork = networkMap[network] || network;
+            
+            // Variation IDs for data plans (verify these with VTU.ng)
+            const variationIds = {
+                mtn: { 100: "MTN-100MB", 200: "MTN-200MB", 300: "MTN-300MB", 700: "MTN-700MB", 1024: "MTN-1GB" },
+                airtel: { 100: "AIRTEL-100MB", 200: "AIRTEL-200MB", 300: "AIRTEL-300MB", 700: "AIRTEL-700MB", 1024: "AIRTEL-1GB" },
+                glo: { 100: "GLO-100MB", 200: "GLO-200MB", 300: "GLO-300MB", 700: "GLO-700MB", 1024: "GLO-1GB" }
+            };
+            
+            const variationId = variationIds[network]?.[planMB];
+            
+            if (!variationId) {
+                console.error(`No variation ID for ${planMB}MB on ${network}`);
+                return { 
+                    success: false, 
+                    message: `Configuration error: No plan ID found for ${planMB}MB. Please contact support.` 
+                };
+            }
+            
+            // Build API URL
+            const apiUrl = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${cleanPhone}&network_id=${apiNetwork}&variation_id=${variationId}`;
+            
+            console.log("Calling VTU.ng API:", apiUrl);
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
+                    }
+                });
+                
+                const result = await response.json();
+                console.log("VTU.ng API Response:", JSON.stringify(result, null, 2));
+                
+                // Check for success
+                if (result.code === "success" || result.status === "success" || result.success === true) {
+                    return {
+                        success: true,
+                        reference: result.data?.request_id || result.data?.reference || result.reference || Date.now().toString(),
+                        message: result.message || `${planMB}MB data successfully sent to ${cleanPhone}!`
+                    };
+                } else {
+                    let errorMsg = result.message || "Transaction failed";
+                    if (errorMsg.toLowerCase().includes("insufficient")) {
+                        errorMsg = "Insufficient wallet balance. Please fund your VTU.ng wallet.";
+                    } else if (errorMsg.toLowerCase().includes("invalid") || errorMsg.toLowerCase().includes("auth")) {
+                        errorMsg = "Invalid credentials. Please check your VTU.ng username/password.";
+                    }
+                    return { success: false, message: errorMsg };
+                }
+            } catch (error) {
+                console.error("VTU.ng API Error:", error);
+                return { 
+                    success: false, 
+                    message: "Network error. Please check your internet connection and try again." 
+                };
+            }
+        }
+        
+        // ============================================
+        // SHOW FREE DATA OVERLAY
+        // ============================================
+        function showFreeDataOverlay(userEmail) {
+            const existingOverlay = document.querySelector('.free-data-overlay');
+            if (existingOverlay) existingOverlay.remove();
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'free-data-overlay';
+            overlay.innerHTML = `
+                <div class="free-data-card">
+                    <div class="gift-icon">
+                        <i class="fas fa-gift"></i>
+                    </div>
+                    <h2>🎉 You've Got FREE Data! 🎉</h2>
+                    <p>Congratulations! You are one of the first 10 people to sign up. You've earned <strong style="color: #10b981;">100MB FREE</strong> data!</p>
+                    <div class="phone-input-wrapper">
+                        <i class="fas fa-phone-alt" style="margin-right: 10px;"></i>
+                        <input type="tel" id="freeDataPhone" placeholder="Enter your phone number (e.g., 08031234567)" maxlength="11" autocomplete="off">
+                    </div>
+                    <button class="claim-free-btn" id="claimFreeDataBtn">
+                        <i class="fas fa-download"></i> Claim My 100MB Now
+                    </button>
+                    <a class="skip-link" id="skipFreeData">Maybe later, take me to dashboard</a>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            const claimBtn = document.getElementById('claimFreeDataBtn');
+            const phoneInput = document.getElementById('freeDataPhone');
+            const skipLink = document.getElementById('skipFreeData');
+            
+            claimBtn.onclick = async () => {
+                const phoneNumber = phoneInput.value;
+                if (!phoneNumber || !isValidPhone(phoneNumber)) {
+                    showToast("Please enter a valid phone number (e.g., 08031234567)", "error");
+                    return;
+                }
+                
+                claimBtn.disabled = true;
+                claimBtn.innerHTML = '<span class="loading-spinner"></span> Sending your data...';
+                
+                try {
+                    // Detect network based on phone number
+                    let network = "mtn";
+                    if (phoneNumber.startsWith("0802") || phoneNumber.startsWith("0808") || phoneNumber.startsWith("0812") || phoneNumber.startsWith("0701") || phoneNumber.startsWith("0901") || phoneNumber.startsWith("0902") || phoneNumber.startsWith("0907")) {
+                        network = "airtel";
+                    } else if (phoneNumber.startsWith("0805") || phoneNumber.startsWith("0807") || phoneNumber.startsWith("0811") || phoneNumber.startsWith("0815") || phoneNumber.startsWith("0905")) {
+                        network = "glo";
+                    } else if (phoneNumber.startsWith("0809") || phoneNumber.startsWith("0817") || phoneNumber.startsWith("0818") || phoneNumber.startsWith("0909")) {
+                        network = "9mobile";
+                    }
+                    
+                    const result = await sendDataViaVTUng(phoneNumber, network, 100);
+                    
+                    if (result.success) {
+                        showToast(`✅ 100MB FREE data sent to ${phoneNumber}!`, "success");
+                        
+                        // Update user record
+                        const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+                        const userIndex = users.findIndex(u => u.email === userEmail);
+                        if (userIndex !== -1) {
+                            users[userIndex].freeDataClaimed = true;
+                            users[userIndex].freeDataPhone = phoneNumber;
+                            users[userIndex].freeDataReference = result.reference;
+                            localStorage.setItem("onslot_users", JSON.stringify(users));
+                            
+                            if (currentUser && currentUser.email === userEmail) {
+                                currentUser.freeDataClaimed = true;
+                                currentUser.freeDataPhone = phoneNumber;
+                                currentUser.freeDataReference = result.reference;
+                                localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
+                            }
+                        }
+                        
+                        setTimeout(() => overlay.remove(), 2000);
+                    } else {
+                        showToast(`❌ Failed: ${result.message}`, "error");
+                        claimBtn.disabled = false;
+                        claimBtn.innerHTML = '<i class="fas fa-download"></i> Try Again';
+                    }
+                } catch (error) {
+                    console.error("Claim error:", error);
+                    showToast("Error sending data. Please try again.", "error");
+                    claimBtn.disabled = false;
+                    claimBtn.innerHTML = '<i class="fas fa-download"></i> Try Again';
+                }
+            };
+            
+            skipLink.onclick = () => {
+                overlay.remove();
+                showToast("You can claim your free data later from the referral section!", "info");
+                
+                const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+                const userIndex = users.findIndex(u => u.email === userEmail);
+                if (userIndex !== -1) {
+                    users[userIndex].freeDataSkipped = true;
+                    localStorage.setItem("onslot_users", JSON.stringify(users));
+                }
+            };
+        }
+        
+        // ============================================
+        // REFERRAL & FREE DATA TRACKING
+        // ============================================
+        const MAX_FREE_SIGNUPS = 10;
+        let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
+        let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
 
+        function updateFreeDataBanner() {
+            const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
+            const spotsLeftSpan = document.getElementById("spotsLeft");
+            const banner = document.getElementById("freeDataBanner");
+            
+            if (spotsLeftSpan) {
+                if (spotsLeft > 0) {
+                    spotsLeftSpan.textContent = spotsLeft;
+                    banner.classList.remove("promo-ended");
+                } else {
+                    spotsLeftSpan.textContent = "0";
+                    banner.classList.add("promo-ended");
+                }
+            }
+        }
+
+        function generateReferralCode(name, email) {
+            const prefix = name.substring(0, 3).toUpperCase();
+            const random = Math.floor(Math.random() * 10000);
+            return `${prefix}${random}`;
+        }
+
+        // ============================================
+        // AUTHENTICATION
+        // ============================================
+        function showLogin() {
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("signupForm").style.display = "none";
+        }
+
+        function showSignup() {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("signupForm").style.display = "block";
+        }
+
+        function signup() {
+            const name = document.getElementById("signupName").value;
+            const email = document.getElementById("signupEmail").value;
+            const phone = document.getElementById("signupPhone").value;
+            const password = document.getElementById("signupPassword").value;
+            const referralCode = document.getElementById("referralCodeInput").value;
+
+            if (!name || !email || !phone || !password) {
+                showToast("Please fill all fields", "error");
+                return;
+            }
+
+            let users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            if (users.find(u => u.email === email)) {
+                showToast("Email already registered", "error");
+                return;
+            }
+
+            const newReferralCode = generateReferralCode(name, email);
+            
+            let gotFreeData = false;
+            
+            if (freeSignupCount < MAX_FREE_SIGNUPS && !freeSignupUsers.includes(email)) {
+                gotFreeData = true;
+                freeSignupCount++;
+                freeSignupUsers.push(email);
+                localStorage.setItem("onslot_free_signup_count", freeSignupCount);
+                localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
+            }
+            
+            const newUser = { 
+                name, email, phone, password, purchases: [], referralCode: newReferralCode,
+                referralCount: 0, referralRewardMB: 0, referralsNeeded: 5,
+                gotFreeData: gotFreeData, freeDataClaimed: false, freeDataSkipped: false,
+                createdAt: new Date().toISOString()
+            };
+            
+            users.push(newUser);
+            localStorage.setItem("onslot_users", JSON.stringify(users));
+            
+            showToast("Account created! Please login", "success");
+            showLogin();
+            
+            document.getElementById("signupName").value = "";
+            document.getElementById("signupEmail").value = "";
+            document.getElementById("signupPhone").value = "";
+            document.getElementById("signupPassword").value = "";
+            document.getElementById("referralCodeInput").value = "";
+            updateFreeDataBanner();
+        }
+
+        function login() {
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+
+            if (!email || !password) {
+                showToast("Please enter email and password", "error");
+                return;
+            }
+
+            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+            const user = users.find(u => u.email === email && u.password === password);
+
+            if (user) {
+                currentUser = user;
+                localStorage.setItem("onslot_current_user", JSON.stringify(user));
+                showToast("Login successful!", "success");
+                loadDashboard();
+                
+                if (user.gotFreeData && !user.freeDataClaimed && !user.freeDataSkipped) {
+                    setTimeout(() => {
+                        showFreeDataOverlay(user.email);
+                    }, 500);
+                }
+            } else {
+                showToast("Invalid email or password", "error");
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("onslot_current_user");
+            currentUser = null;
+            document.getElementById("authSection").style.display = "flex";
+            document.getElementById("dashboardContent").style.display = "none";
+            document.getElementById("userInfo").style.display = "none";
+            document.getElementById("adminPanel").style.display = "none";
+            showLogin();
+        }
+
+        function loadDashboard() {
+            const savedUser = localStorage.getItem("onslot_current_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                document.getElementById("authSection").style.display = "none";
+                document.getElementById("dashboardContent").style.display = "block";
+                document.getElementById("userInfo").style.display = "flex";
+                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
+                
+                const adminFlag = document.getElementById("adminFlagBtn");
+                if (adminFlag) {
+                    adminFlag.onclick = function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const password = prompt("Enter admin access code:");
+                        if (password === "onslotadmin2024") {
+                            document.getElementById("adminPanel").style.display = "block";
+                            showToast("Admin access granted!", "success");
+                        }
+                    };
+                }
+                
+                loadPendingOrders();
+                displayReferralInfo();
+                updateFreeDataBanner();
+                renderBankList("");
+            }
+        }
+
+        // ============================================
+        // NETWORK FUNCTIONS
+        // ============================================
+        function toggleNetwork(network) {
+            const networkCard = document.querySelector(`.network-card.${network}`);
+            const isExpanded = networkCard.classList.contains('expanded');
+            
+            document.querySelectorAll('.network-card').forEach(card => {
+                card.classList.remove('expanded');
+                const arrow = card.querySelector('.network-arrow');
+                if (arrow) arrow.style.transform = "rotate(0deg)";
+            });
+            
+            if (!isExpanded) {
+                networkCard.classList.add('expanded');
+                const arrow = networkCard.querySelector('.network-arrow');
+                if (arrow) arrow.style.transform = "rotate(180deg)";
+                activeNetwork = network;
+                attachNetworkEvents(network);
+            } else {
+                activeNetwork = null;
+            }
+        }
+        
+        function attachNetworkEvents(network) {
+            const networkCard = document.querySelector(`.network-card.${network}`);
+            if (!networkCard) return;
+            
+            const phoneInput = networkCard.querySelector('.network-phone');
+            const buyBtn = networkCard.querySelector('.network-buy-btn');
+            const planCards = networkCard.querySelectorAll('.plan-card');
+            
+            if (!selectedData[network]) {
+                selectedData[network] = { plan: null, phone: "" };
+            }
+            
+            planCards.forEach(card => card.classList.remove('selected'));
+            
+            phoneInput.oninput = (e) => {
+                selectedData[network].phone = e.target.value;
+                const isValid = isValidPhone(selectedData[network].phone);
+                buyBtn.disabled = !(isValid && selectedData[network].plan);
+            };
+            
+            planCards.forEach(card => {
+                card.onclick = () => {
+                    planCards.forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    
+                    selectedData[network].plan = {
+                        mb: parseInt(card.dataset.mb),
+                        price: parseInt(card.dataset.price),
+                        network: network
+                    };
+                    
+                    const isValid = isValidPhone(selectedData[network].phone);
+                    buyBtn.disabled = !(isValid && selectedData[network].plan);
+                };
+            });
+            
+            buyBtn.onclick = () => processPurchase(network);
+        }
+        
+        function processPurchase(network) {
+            const data = selectedData[network];
+            if (!data || !data.plan || !data.phone) {
+                showToast("Please select a plan and enter your phone number", "error");
+                return;
+            }
+            if (!isValidPhone(data.phone)) {
+                showToast("Please enter a valid phone number", "error");
+                return;
+            }
+            window.currentPurchase = { network: network, plan: data.plan, phone: data.phone };
+            document.getElementById("payAmount").textContent = data.plan.price;
+            document.getElementById("paymentModal").style.display = "flex";
+        }
+        
+        function submitPaymentConfirmation() {
+            const transactionRef = document.getElementById("transactionRef").value;
+            const senderName = document.getElementById("senderName").value;
+            const customBank = document.getElementById("customBankInput").value;
+            const bankName = selectedBank || customBank;
+
+            if (!transactionRef || !senderName) {
+                showToast("Please enter transaction reference and your name", "error");
+                return;
+            }
+            
+            if (!bankName) {
+                showToast("Please select or enter your bank name", "error");
+                return;
+            }
+            
+            if (!window.currentPurchase) {
+                showToast("No purchase in progress", "error");
+                return;
+            }
+            
+            const purchase = window.currentPurchase;
+            const newOrder = {
+                id: Date.now(), customerName: senderName, userEmail: currentUser.email,
+                phone: purchase.phone, network: purchase.network, plan: purchase.plan.mb,
+                amount: purchase.plan.price, transactionRef: transactionRef,
+                timestamp: new Date().toLocaleString(), status: "pending",
+                paymentMethod: selectedPaymentMethod,
+                bankName: bankName,
+                receiptImage: uploadedReceiptData || null
+            };
+            
+            pendingOrders.unshift(newOrder);
+            savePendingOrders();
+            closePaymentModal();
+            showToast("Payment submitted! Admin will verify your payment.", "success");
+            
+            removeReceipt();
+            selectedBank = "";
+            document.getElementById("selectedBankDisplay").style.display = "none";
+            document.getElementById("bankSearchInput").value = "";
+            document.getElementById("customBankInput").value = "";
+            renderBankList("");
+            selectPaymentMethod("transfer");
+            
+            const networkCard = document.querySelector(`.network-card.${purchase.network}`);
+            if (networkCard) {
+                const phoneInput = networkCard.querySelector('.network-phone');
+                const buyBtn = networkCard.querySelector('.network-buy-btn');
+                const selectedPlanCard = networkCard.querySelector('.plan-card.selected');
+                if (phoneInput) phoneInput.value = "";
+                if (selectedPlanCard) selectedPlanCard.classList.remove('selected');
+                if (buyBtn) buyBtn.disabled = true;
+            }
+            selectedData[purchase.network] = { plan: null, phone: "" };
+            window.currentPurchase = null;
+        }
+        
         // ============================================
         // PAYMENT MODAL FUNCTIONS
         // ============================================
-        
         function selectPaymentMethod(method) {
             selectedPaymentMethod = method;
             document.querySelectorAll('.payment-method').forEach(el => {
@@ -1883,467 +2358,19 @@
             document.getElementById("receiptPreview").style.display = "none";
             document.getElementById("receiptPreview").innerHTML = "";
         }
-
-        // ============================================
-        // REFERRAL & FREE DATA TRACKING - 10 PEOPLE
-        // ============================================
-        const MAX_FREE_SIGNUPS = 10;
-        let freeSignupCount = parseInt(localStorage.getItem("onslot_free_signup_count") || "0");
-        let freeSignupUsers = JSON.parse(localStorage.getItem("onslot_free_signup_users") || "[]");
-
-        function updateFreeDataBanner() {
-            const spotsLeft = MAX_FREE_SIGNUPS - freeSignupCount;
-            const spotsLeftSpan = document.getElementById("spotsLeft");
-            const banner = document.getElementById("freeDataBanner");
-            
-            if (spotsLeftSpan) {
-                if (spotsLeft > 0) {
-                    spotsLeftSpan.textContent = spotsLeft;
-                    banner.classList.remove("promo-ended");
-                } else {
-                    spotsLeftSpan.textContent = "0";
-                    banner.classList.add("promo-ended");
-                    banner.style.background = "rgba(239, 68, 68, 0.2)";
-                    banner.style.borderColor = "rgba(239, 68, 68, 0.3)";
-                    const bannerTitle = banner.querySelector("h4");
-                    if (bannerTitle) bannerTitle.style.color = "#ef4444";
-                }
-            }
-        }
-
-        function generateReferralCode(name, email) {
-            const prefix = name.substring(0, 3).toUpperCase();
-            const random = Math.floor(Math.random() * 10000);
-            return `${prefix}${random}`;
-        }
-
-        // ============================================
-        // FREE DATA CLAIM OVERLAY
-        // ============================================
-        
-        function showFreeDataOverlay(userEmail) {
-            // Remove any existing overlay
-            const existingOverlay = document.querySelector('.free-data-overlay');
-            if (existingOverlay) existingOverlay.remove();
-            
-            const overlay = document.createElement('div');
-            overlay.className = 'free-data-overlay';
-            overlay.innerHTML = `
-                <div class="free-data-card">
-                    <div class="gift-icon">
-                        <i class="fas fa-gift"></i>
-                    </div>
-                    <h2>🎉 You've Got FREE Data! 🎉</h2>
-                    <p>Congratulations! You are one of the first ${MAX_FREE_SIGNUPS} people to sign up. You've earned <strong style="color: #10b981;">100MB FREE</strong> data!</p>
-                    <div class="phone-input-wrapper">
-                        <i class="fas fa-phone-alt" style="margin-right: 10px;"></i>
-                        <input type="tel" id="freeDataPhone" placeholder="Enter your phone number" maxlength="11" autocomplete="off">
-                    </div>
-                    <button class="claim-free-btn" id="claimFreeDataBtn">
-                        <i class="fas fa-download"></i> Claim My 100MB Now
-                    </button>
-                    <a class="skip-link" id="skipFreeData">Maybe later, take me to dashboard</a>
-                </div>
-            `;
-            
-            document.body.appendChild(overlay);
-            
-            const claimBtn = document.getElementById('claimFreeDataBtn');
-            const phoneInput = document.getElementById('freeDataPhone');
-            const skipLink = document.getElementById('skipFreeData');
-            
-            claimBtn.onclick = async () => {
-                const phoneNumber = phoneInput.value;
-                if (!phoneNumber || !isValidPhone(phoneNumber)) {
-                    showToast("Please enter a valid phone number (e.g., 08031234567)", "error");
-                    return;
-                }
-                
-                claimBtn.disabled = true;
-                claimBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending your data...';
-                
-                try {
-                    // Detect network based on phone number
-                    let network = "mtn";
-                    if (phoneNumber.startsWith("0802") || phoneNumber.startsWith("0808") || phoneNumber.startsWith("0812") || phoneNumber.startsWith("0701")) {
-                        network = "airtel";
-                    } else if (phoneNumber.startsWith("0805") || phoneNumber.startsWith("0807") || phoneNumber.startsWith("0811") || phoneNumber.startsWith("0815")) {
-                        network = "glo";
-                    }
-                    
-                    const result = await sendDataViaVTUng(phoneNumber, network, 100);
-                    
-                    if (result.success) {
-                        showToast(`✅ 100MB FREE data sent to ${phoneNumber}!`, "success");
-                        
-                        // Update user record that they claimed their free data
-                        const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                        const userIndex = users.findIndex(u => u.email === userEmail);
-                        if (userIndex !== -1) {
-                            users[userIndex].freeDataClaimed = true;
-                            users[userIndex].freeDataPhone = phoneNumber;
-                            localStorage.setItem("onslot_users", JSON.stringify(users));
-                            
-                            if (currentUser && currentUser.email === userEmail) {
-                                currentUser.freeDataClaimed = true;
-                                currentUser.freeDataPhone = phoneNumber;
-                                localStorage.setItem("onslot_current_user", JSON.stringify(currentUser));
-                            }
-                        }
-                        
-                        overlay.remove();
-                    } else {
-                        showToast(`Failed to send data: ${result.message}`, "error");
-                        claimBtn.disabled = false;
-                        claimBtn.innerHTML = '<i class="fas fa-download"></i> Claim My 100MB Now';
-                    }
-                } catch (error) {
-                    showToast("Error sending data. Please try again.", "error");
-                    claimBtn.disabled = false;
-                    claimBtn.innerHTML = '<i class="fas fa-download"></i> Claim My 100MB Now';
-                }
-            };
-            
-            skipLink.onclick = () => {
-                overlay.remove();
-                showToast("You can claim your free data later from the referral section!", "info");
-                
-                // Mark that user saw the overlay but didn't claim yet
-                const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-                const userIndex = users.findIndex(u => u.email === userEmail);
-                if (userIndex !== -1) {
-                    users[userIndex].freeDataSkipped = true;
-                    localStorage.setItem("onslot_users", JSON.stringify(users));
-                }
-            };
-            
-            phoneInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') claimBtn.click();
-            });
-        }
-
-        // ============================================
-        // VTU.ng API CONFIGURATION
-        // ============================================
-        const VTU_NG_CONFIG = {
-            USERNAME: "YOUR_VTU_NG_USERNAME",
-            PASSWORD: "YOUR_VTU_NG_PASSWORD",
-            BASE_URL: "https://vtu.ng/wp-json/api/v1/data",
-            VARIATION_IDS: {
-                mtn: { 100: "M100", 200: "M200", 300: "M300", 700: "M700", 1024: "M1024" },
-                airtel: { 100: "A100", 200: "A200", 300: "A300", 700: "A700", 1024: "A1024" },
-                glo: { 100: "G100", 200: "G200", 300: "G300", 700: "G700", 1024: "G1024" }
-            }
-        };
-
-        let currentUser = null;
-        let pendingOrders = [];
-        let activeNetwork = null;
-        let selectedData = {};
-
-        // ============================================
-        // NETWORK CARD FUNCTIONS
-        // ============================================
-        
-        function toggleNetwork(network) {
-            const networkCard = document.querySelector(`.network-card.${network}`);
-            const isExpanded = networkCard.classList.contains('expanded');
-            
-            document.querySelectorAll('.network-card').forEach(card => {
-                card.classList.remove('expanded');
-                const arrow = card.querySelector('.network-arrow');
-                if (arrow) arrow.style.transform = "rotate(0deg)";
-            });
-            
-            if (!isExpanded) {
-                networkCard.classList.add('expanded');
-                const arrow = networkCard.querySelector('.network-arrow');
-                if (arrow) arrow.style.transform = "rotate(180deg)";
-                activeNetwork = network;
-                attachNetworkEvents(network);
-            } else {
-                activeNetwork = null;
-            }
-        }
-        
-        function attachNetworkEvents(network) {
-            const networkCard = document.querySelector(`.network-card.${network}`);
-            if (!networkCard) return;
-            
-            const phoneInput = networkCard.querySelector('.network-phone');
-            const buyBtn = networkCard.querySelector('.network-buy-btn');
-            const planCards = networkCard.querySelectorAll('.plan-card');
-            
-            if (!selectedData[network]) {
-                selectedData[network] = { plan: null, phone: "" };
-            }
-            
-            planCards.forEach(card => card.classList.remove('selected'));
-            
-            phoneInput.oninput = (e) => {
-                selectedData[network].phone = e.target.value;
-                const isValid = isValidPhone(selectedData[network].phone);
-                buyBtn.disabled = !(isValid && selectedData[network].plan);
-            };
-            
-            planCards.forEach(card => {
-                card.onclick = () => {
-                    planCards.forEach(c => c.classList.remove('selected'));
-                    card.classList.add('selected');
-                    
-                    selectedData[network].plan = {
-                        mb: parseInt(card.dataset.mb),
-                        price: parseInt(card.dataset.price),
-                        network: network
-                    };
-                    
-                    const isValid = isValidPhone(selectedData[network].phone);
-                    buyBtn.disabled = !(isValid && selectedData[network].plan);
-                };
-            });
-            
-            buyBtn.onclick = () => processPurchase(network);
-        }
         
         // ============================================
-        // VTU.ng API FUNCTION
+        // ORDER MANAGEMENT
         // ============================================
-        
-        async function sendDataViaVTUng(phoneNumber, network, planMB) {
-            const variationId = VTU_NG_CONFIG.VARIATION_IDS[network]?.[planMB];
-            
-            if (!variationId) {
-                console.log(`No variation ID found for ${planMB}MB on ${network}, using fallback`);
-                // Return success for testing (in production, you'd have actual API call)
-                return { success: true, message: "Data sent successfully (simulated)" };
-            }
-            
-            const url = `${VTU_NG_CONFIG.BASE_URL}?username=${encodeURIComponent(VTU_NG_CONFIG.USERNAME)}&password=${encodeURIComponent(VTU_NG_CONFIG.PASSWORD)}&phone=${phoneNumber}&network_id=${network}&variation_id=${variationId}`;
-            
-            try {
-                const response = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
-                const result = await response.json();
-                console.log("VTU.ng API Response:", result);
-                
-                if (result.code === "success") {
-                    return { success: true, reference: result.data?.request_id || Date.now().toString(), message: result.message || "Data delivered successfully" };
-                } else {
-                    return { success: false, message: result.message || "Delivery failed. Please check your wallet balance." };
-                }
-            } catch (error) {
-                console.error("VTU.ng API Error:", error);
-                // For testing, return success even if API fails
-                return { success: true, message: "Data sent successfully (demo mode)" };
-            }
-        }
-
-        // ============================================
-        // AUTHENTICATION
-        // ============================================
-        
-        function showLogin() {
-            document.getElementById("loginForm").style.display = "block";
-            document.getElementById("signupForm").style.display = "none";
-        }
-
-        function showSignup() {
-            document.getElementById("loginForm").style.display = "none";
-            document.getElementById("signupForm").style.display = "block";
-        }
-
-        function signup() {
-            const name = document.getElementById("signupName").value;
-            const email = document.getElementById("signupEmail").value;
-            const phone = document.getElementById("signupPhone").value;
-            const password = document.getElementById("signupPassword").value;
-            const referralCode = document.getElementById("referralCodeInput").value;
-
-            if (!name || !email || !phone || !password) {
-                showToast("Please fill all fields", "error");
-                return;
-            }
-
-            let users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            if (users.find(u => u.email === email)) {
-                showToast("Email already registered", "error");
-                return;
-            }
-
-            const newReferralCode = generateReferralCode(name, email);
-            
-            let gotFreeData = false;
-            
-            if (freeSignupCount < MAX_FREE_SIGNUPS && !freeSignupUsers.includes(email)) {
-                gotFreeData = true;
-                freeSignupCount++;
-                freeSignupUsers.push(email);
-                localStorage.setItem("onslot_free_signup_count", freeSignupCount);
-                localStorage.setItem("onslot_free_signup_users", JSON.stringify(freeSignupUsers));
-            }
-            
-            const newUser = { 
-                name, email, phone, password, purchases: [], referralCode: newReferralCode,
-                referralCount: 0, referralRewardMB: 0, referralsNeeded: 5,
-                gotFreeData: gotFreeData, freeDataClaimed: false, freeDataSkipped: false,
-                createdAt: new Date().toISOString()
-            };
-            
-            users.push(newUser);
-            localStorage.setItem("onslot_users", JSON.stringify(users));
-            
-            showToast("Account created! Please login", "success");
-            showLogin();
-            
-            document.getElementById("signupName").value = "";
-            document.getElementById("signupEmail").value = "";
-            document.getElementById("signupPhone").value = "";
-            document.getElementById("signupPassword").value = "";
-            document.getElementById("referralCodeInput").value = "";
-            updateFreeDataBanner();
-        }
-
-        function login() {
-            const email = document.getElementById("loginEmail").value;
-            const password = document.getElementById("loginPassword").value;
-
-            if (!email || !password) {
-                showToast("Please enter email and password", "error");
-                return;
-            }
-
-            const users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-            const user = users.find(u => u.email === email && u.password === password);
-
-            if (user) {
-                currentUser = user;
-                localStorage.setItem("onslot_current_user", JSON.stringify(user));
-                showToast("Login successful!", "success");
-                loadDashboard();
-                
-                // Show free data overlay if user qualified and hasn't claimed or skipped
-                if (user.gotFreeData && !user.freeDataClaimed && !user.freeDataSkipped) {
-                    setTimeout(() => {
-                        showFreeDataOverlay(user.email);
-                    }, 500);
-                }
-            } else {
-                showToast("Invalid email or password", "error");
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem("onslot_current_user");
-            currentUser = null;
-            isAdminAuthenticated = false;
-            document.getElementById("authSection").style.display = "flex";
-            document.getElementById("dashboardContent").style.display = "none";
-            document.getElementById("userInfo").style.display = "none";
-            document.getElementById("adminPanel").style.display = "none";
-            showLogin();
-        }
-
-        function loadDashboard() {
-            const savedUser = localStorage.getItem("onslot_current_user");
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-                document.getElementById("authSection").style.display = "none";
-                document.getElementById("dashboardContent").style.display = "block";
-                document.getElementById("userInfo").style.display = "flex";
-                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
-                
-                const adminFlag = document.getElementById("adminFlagBtn");
-                if (adminFlag) {
-                    adminFlag.onclick = function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const password = prompt("Enter admin access code:");
-                        if (password === ADMIN_FLAG_PASSWORD) {
-                            isAdminAuthenticated = true;
-                            showAdminPanel();
-                            showToast("Admin access granted!", "success");
-                        }
-                    };
-                }
-                
-                loadPendingOrders();
-                checkUserNotifications();
-                displayReferralInfo();
-                updateFreeDataBanner();
-                renderBankList("");
-            }
-        }
-
-        function updateNotificationBadges() {
-            const pendingCount = pendingOrders.filter(order => order.status === "pending").length;
-            const adminBadge = document.getElementById("adminNotificationBadge");
-            if (adminBadge) {
-                if (pendingCount > 0) {
-                    adminBadge.style.display = "inline-block";
-                    adminBadge.textContent = pendingCount > 99 ? "99+" : pendingCount;
-                } else {
-                    adminBadge.style.display = "none";
-                }
-            }
-            const orderCountBadge = document.getElementById("orderCountBadge");
-            if (orderCountBadge) {
-                if (pendingCount > 0) {
-                    orderCountBadge.style.display = "inline-block";
-                    orderCountBadge.textContent = pendingCount > 99 ? "99+" : pendingCount;
-                } else {
-                    orderCountBadge.style.display = "none";
-                }
-            }
-        }
-
-        function closeAdminPasscodeModal() {
-            document.getElementById("adminPasscodeModal").style.display = "none";
-        }
-
-        function verifyAdminPasscode() {
-            const enteredCode = document.getElementById("adminPasscode").value;
-            if (enteredCode === ADMIN_FLAG_PASSWORD) {
-                isAdminAuthenticated = true;
-                closeAdminPasscodeModal();
-                showAdminPanel();
-                showToast("Admin access granted!", "success");
-            } else {
-                showToast("Invalid passcode! Access denied.", "error");
-                closeAdminPasscodeModal();
-            }
-        }
-
-        function showAdminPanel() {
-            if (!isAdminAuthenticated) {
-                document.getElementById("adminPasscodeModal").style.display = "flex";
-                return;
-            }
-            document.getElementById("adminPanel").style.display = "block";
-            loadPendingOrders();
-        }
-
-        function toggleAdminPanel() {
-            const content = document.getElementById("adminContent");
-            const chevron = document.getElementById("adminChevron");
-            if (content.classList.contains("show")) {
-                content.classList.remove("show");
-                chevron.style.transform = "rotate(0deg)";
-            } else {
-                content.classList.add("show");
-                chevron.style.transform = "rotate(180deg)";
-            }
-        }
-
         function loadPendingOrders() {
             const saved = localStorage.getItem("onslot_pending_orders");
             if (saved) pendingOrders = JSON.parse(saved);
             renderPendingOrders();
-            updateNotificationBadges();
         }
 
         function savePendingOrders() {
             localStorage.setItem("onslot_pending_orders", JSON.stringify(pendingOrders));
             renderPendingOrders();
-            updateNotificationBadges();
         }
 
         function renderPendingOrders() {
@@ -2389,9 +2416,6 @@
                             <button class="accept-btn" onclick="acceptOrder(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
                                 <i class="fas fa-check-circle"></i> Accept
                             </button>
-                            <button class="pending-btn" onclick="markAsPending(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
-                                <i class="fas fa-clock"></i> Pending
-                            </button>
                             <button class="decline-btn" onclick="declineOrder(${index})" ${order.status !== "pending" ? 'disabled' : ''}>
                                 <i class="fas fa-times-circle"></i> Decline
                             </button>
@@ -2408,11 +2432,7 @@
             order.status = "processing";
             savePendingOrders();
             
-            const acceptBtn = document.querySelector(`.pending-order[data-index="${index}"] .accept-btn`);
-            if (acceptBtn) {
-                acceptBtn.innerHTML = '<i class="fas fa-spinner fa-pulse"></i> Sending...';
-                acceptBtn.disabled = true;
-            }
+            showToast(`Processing ${order.plan}MB for ${order.phone}...`, "info");
             
             try {
                 const result = await sendDataViaVTUng(order.phone, order.network, order.plan);
@@ -2421,11 +2441,10 @@
                     order.status = "completed";
                     savePendingOrders();
                     showToast(`✅ ${order.plan}MB ${order.network.toUpperCase()} data sent to ${order.phone}!`, "success");
-                    notifyUser(order.userEmail, "success", order.plan, order.phone);
                 } else {
                     order.status = "pending";
                     savePendingOrders();
-                    showToast(`❌ Failed: ${result.message}. Order still pending.`, "error");
+                    showToast(`❌ Failed: ${result.message}`, "error");
                 }
             } catch (error) {
                 order.status = "pending";
@@ -2434,130 +2453,47 @@
             }
         }
 
-        function markAsPending(index) {
-            const order = pendingOrders[index];
-            if (!order || order.status !== "pending") return;
-            notifyUser(order.userEmail, "pending", order.plan, order.phone);
-            showToast(`Pending notification sent to ${order.customerName}`, "warning");
-        }
-
         function declineOrder(index) {
             const order = pendingOrders[index];
             if (!order || order.status !== "pending") return;
-            if (confirm(`Decline order for ${order.customerName}? This will notify them that payment was declined.`)) {
+            if (confirm(`Decline order for ${order.customerName}?`)) {
                 order.status = "declined";
                 savePendingOrders();
-                notifyUser(order.userEmail, "declined", order.plan, order.phone);
-                showToast(`Order declined. Notification sent to ${order.customerName}`, "error");
+                showToast(`Order declined.`, "error");
             }
         }
 
-        function notifyUser(userEmail, type, plan, phone) {
-            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
-            notifications.unshift({
-                id: Date.now(), userEmail: userEmail, type: type, plan: plan, phone: phone,
-                message: type === "success" ? "Your payment has been confirmed and data has been sent!" :
-                          type === "pending" ? "There is a current error due to invalid payment or delay in payment. Please hold for some minutes while we verify your transaction." :
-                          "Your payment has been declined. Please contact support for assistance.",
-                read: false, timestamp: new Date().toLocaleString()
-            });
-            localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
-            
-            if (currentUser && currentUser.email === userEmail) {
-                if (type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
-                else if (type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
-                else if (type === "success") document.getElementById("successNotificationModal").style.display = "flex";
+        function toggleAdminPanel() {
+            const content = document.getElementById("adminContent");
+            const chevron = document.getElementById("adminChevron");
+            if (content.classList.contains("show")) {
+                content.classList.remove("show");
+                chevron.style.transform = "rotate(0deg)";
+            } else {
+                content.classList.add("show");
+                chevron.style.transform = "rotate(180deg)";
             }
         }
 
-        function checkUserNotifications() {
-            if (!currentUser) return;
-            const notifications = JSON.parse(localStorage.getItem("onslot_notifications") || "[]");
-            const userNotifications = notifications.filter(n => n.userEmail === currentUser.email && !n.read);
-            
-            if (userNotifications.length > 0) {
-                const latest = userNotifications[0];
-                if (latest.type === "pending") document.getElementById("pendingNotificationModal").style.display = "flex";
-                else if (latest.type === "declined") document.getElementById("declinedNotificationModal").style.display = "flex";
-                else if (latest.type === "success") document.getElementById("successNotificationModal").style.display = "flex";
-                latest.read = true;
-                localStorage.setItem("onslot_notifications", JSON.stringify(notifications));
-            }
+        function closeAdminPasscodeModal() {
+            document.getElementById("adminPasscodeModal").style.display = "none";
         }
 
-        function processPurchase(network) {
-            const data = selectedData[network];
-            if (!data || !data.plan || !data.phone) {
-                showToast("Please select a plan and enter your phone number", "error");
-                return;
+        function verifyAdminPasscode() {
+            const enteredCode = document.getElementById("adminPasscode").value;
+            if (enteredCode === "onslotadmin2024") {
+                closeAdminPasscodeModal();
+                document.getElementById("adminPanel").style.display = "block";
+                showToast("Admin access granted!", "success");
+            } else {
+                showToast("Invalid passcode! Access denied.", "error");
+                closeAdminPasscodeModal();
             }
-            if (!isValidPhone(data.phone)) {
-                showToast("Please enter a valid phone number", "error");
-                return;
-            }
-            window.currentPurchase = { network: network, plan: data.plan, phone: data.phone };
-            document.getElementById("payAmount").textContent = data.plan.price;
-            document.getElementById("paymentModal").style.display = "flex";
         }
-
-        function submitPaymentConfirmation() {
-            const transactionRef = document.getElementById("transactionRef").value;
-            const senderName = document.getElementById("senderName").value;
-            const customBank = document.getElementById("customBankInput").value;
-            const bankName = selectedBank || customBank;
-
-            if (!transactionRef || !senderName) {
-                showToast("Please enter transaction reference and your name", "error");
-                return;
-            }
-            
-            if (!bankName) {
-                showToast("Please select or enter your bank name", "error");
-                return;
-            }
-            
-            if (!window.currentPurchase) {
-                showToast("No purchase in progress", "error");
-                return;
-            }
-            
-            const purchase = window.currentPurchase;
-            const newOrder = {
-                id: Date.now(), customerName: senderName, userEmail: currentUser.email,
-                phone: purchase.phone, network: purchase.network, plan: purchase.plan.mb,
-                amount: purchase.plan.price, transactionRef: transactionRef,
-                timestamp: new Date().toLocaleString(), status: "pending",
-                paymentMethod: selectedPaymentMethod,
-                bankName: bankName,
-                receiptImage: uploadedReceiptData || null
-            };
-            
-            pendingOrders.unshift(newOrder);
-            savePendingOrders();
-            closePaymentModal();
-            showToast("Payment submitted! Admin will verify your payment.", "success");
-            
-            removeReceipt();
-            selectedBank = "";
-            document.getElementById("selectedBankDisplay").style.display = "none";
-            document.getElementById("bankSearchInput").value = "";
-            document.getElementById("customBankInput").value = "";
-            renderBankList("");
-            selectPaymentMethod("transfer");
-            
-            const networkCard = document.querySelector(`.network-card.${purchase.network}`);
-            if (networkCard) {
-                const phoneInput = networkCard.querySelector('.network-phone');
-                const buyBtn = networkCard.querySelector('.network-buy-btn');
-                const selectedPlanCard = networkCard.querySelector('.plan-card.selected');
-                if (phoneInput) phoneInput.value = "";
-                if (selectedPlanCard) selectedPlanCard.classList.remove('selected');
-                if (buyBtn) buyBtn.disabled = true;
-            }
-            selectedData[purchase.network] = { plan: null, phone: "" };
-            window.currentPurchase = null;
-        }
-
+        
+        // ============================================
+        // REFERRAL DISPLAY
+        // ============================================
         function displayReferralInfo() {
             if (!currentUser) return;
             
@@ -2602,19 +2538,19 @@
 
         function copyReferralCode() {
             const code = document.getElementById("userReferralCode").textContent;
-            const fullMessage = `🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${SITE_URL}`;
+            const fullMessage = `🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${window.location.origin}`;
             navigator.clipboard.writeText(fullMessage);
             showToast("Referral message copied! Share with friends.", "success");
         }
 
         function shareOnWhatsApp() {
             const code = document.getElementById("userReferralCode").textContent;
-            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${SITE_URL}`);
+            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${window.location.origin}`);
             window.open(`https://wa.me/?text=${text}`, "_blank");
         }
 
         function shareOnFacebook() {
-            const url = encodeURIComponent(SITE_URL);
+            const url = encodeURIComponent(window.location.origin);
             window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, "_blank");
         }
 
@@ -2626,17 +2562,27 @@
 
         function shareOnTelegram() {
             const code = document.getElementById("userReferralCode").textContent;
-            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${SITE_URL}`);
-            window.open(`https://t.me/share/url?url=${SITE_URL}&text=${text}`, "_blank");
+            const text = encodeURIComponent(`🎉 Join OnSlot and get cheap data! Use my referral code: ${code} to sign up! 🚀\n\nSign up here: ${window.location.origin}`);
+            window.open(`https://t.me/share/url?url=${window.location.origin}&text=${text}`, "_blank");
         }
 
         function shareOnSnapchat() {
-            const url = encodeURIComponent(SITE_URL);
+            const url = encodeURIComponent(window.location.origin);
             window.open(`https://www.snapchat.com/share?url=${url}`, "_blank");
         }
 
-        function closePromoEndedModal() { document.getElementById("promoEndedModal").style.display = "none"; }
+        async function claimReward() {
+            // Placeholder for reward claim
+            showToast("Reward feature coming soon!", "info");
+        }
+
+        function closeRewardClaimModal() {
+            document.getElementById("rewardClaimModal").style.display = "none";
+        }
         
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
         function isValidPhone(phone) {
             if (!phone) return false;
             const clean = phone.replace(/\s/g, '');
@@ -2669,11 +2615,15 @@
         function closePendingModal() { document.getElementById("pendingNotificationModal").style.display = "none"; }
         function closeDeclinedModal() { document.getElementById("declinedNotificationModal").style.display = "none"; }
         function closeSuccessNotificationModal() { document.getElementById("successNotificationModal").style.display = "none"; }
-        function closeRewardClaimModal() { document.getElementById("rewardClaimModal").style.display = "none"; }
+        function closePromoEndedModal() { document.getElementById("promoEndedModal").style.display = "none"; }
 
+        // Initialize
         document.addEventListener("DOMContentLoaded", () => {
             loadDashboard();
             updateFreeDataBanner();
+            renderBankList("");
+            document.getElementById("apiStatus").innerHTML = "✅ VTU.ng Ready";
+            document.getElementById("apiStatus").className = "api-status connected";
         });
     </script>
 </body>
