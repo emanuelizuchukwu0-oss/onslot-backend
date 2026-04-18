@@ -178,28 +178,36 @@
 </div>
 
 <script>
+    // ============================================
+    // BACKEND API CONFIGURATION
+    // ============================================
+    // CHANGE THIS TO YOUR RENDER BACKEND URL!!!
+    const API_URL = 'https://onslot-api.onrender.com/api';
+    
     // Get game data from URL params
     const urlParams = new URLSearchParams(window.location.search);
-    let targetReward = urlParams.get('reward') || localStorage.getItem("onslot_game_reward") || "500MB";
-    let amountPaid = urlParams.get('amount') || localStorage.getItem("onslot_game_price") || "200";
-    let gameToken = urlParams.get('token') || localStorage.getItem("onslot_game_token") || "";
-    let userEmail = urlParams.get('user') || localStorage.getItem("onslot_game_user") || "";
+    let targetReward = urlParams.get('reward') || "500MB";
+    let amountPaid = urlParams.get('amount') || "200";
+    let userEmail = urlParams.get('user') || "";
     let selectedWinNetwork = "";
     
-    // Validate token
-    let gameTokens = JSON.parse(localStorage.getItem("onslot_game_tokens") || "[]");
-    let validToken = gameTokens.find(t => t.id == gameToken && t.userEmail === userEmail && !t.used);
-    
-    if (!validToken) {
-        alert("Invalid or expired game session. Please pay to play again.");
-        window.location.href = "index.html";
-    } else {
-        // Mark token as used
-        validToken.used = true;
-        localStorage.setItem("onslot_game_tokens", JSON.stringify(gameTokens));
-    }
-    
     document.getElementById("rewardDisplay").textContent = targetReward;
+    
+    async function callAPI(endpoint, method = 'GET', body = null) {
+        const options = {
+            method: method,
+            headers: { 'Content-Type': 'application/json' }
+        };
+        if (body) options.body = JSON.stringify(body);
+        
+        try {
+            const response = await fetch(`${API_URL}${endpoint}`, options);
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            return null;
+        }
+    }
     
     function selectWinNetwork(network) {
         selectedWinNetwork = network;
@@ -401,7 +409,7 @@
     
     function goBackToDashboard() { window.location.href = "index.html"; }
     
-    function submitWinWithPhone() {
+    async function submitWinWithPhone() {
         const phone = document.getElementById("winPhoneNumber").value;
         if (!selectedWinNetwork) { alert("Please select your network"); return; }
         if (!phone || !/^(0[7-9][0-1]{1}[0-9]{8})$/.test(phone)) {
@@ -409,27 +417,23 @@
             return;
         }
         
-        let pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
-        let users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-        let currentUserData = users.find(u => u.email === userEmail);
-        
-        pendingWins.push({
-            id: Date.now(),
+        const result = await callAPI('/submit-win', 'POST', {
             userEmail: userEmail,
-            userName: currentUserData ? currentUserData.name : "Unknown",
+            userName: "User", // Will be fetched from backend
             userPhone: phone,
             network: selectedWinNetwork,
             reward: targetReward,
             amountPaid: amountPaid,
-            score: score,
-            timestamp: new Date().toLocaleString(),
-            status: "pending"
+            score: score
         });
-        localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
         
-        closeWinPhoneModal();
-        alert(`✅ Request Sent!\n\nYou've won ${targetReward}!\n\nEmail: ${userEmail}\nNetwork: ${selectedWinNetwork.toUpperCase()}\nPhone: ${phone}\n\nYour request has been sent to admin. You will receive your data shortly.`);
-        window.location.href = "index.html";
+        if (result && result.success) {
+            closeWinPhoneModal();
+            alert(`✅ Request Sent!\n\nYou've won ${targetReward}!\n\nNetwork: ${selectedWinNetwork.toUpperCase()}\nPhone: ${phone}\n\nYour request has been sent to admin. You will receive your data shortly.`);
+            window.location.href = "index.html";
+        } else {
+            alert("Failed to submit win. Please try again.");
+        }
     }
     
     function jump() {

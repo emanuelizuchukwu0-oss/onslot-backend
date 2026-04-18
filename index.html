@@ -200,51 +200,358 @@
     <footer class="footer"><p>&copy; 2024 OnSlot. All rights reserved. | Play Games & Win Data!</p></footer>
 
     <script>
-        // Initialize localStorage
-        if (!localStorage.getItem("onslot_users")) localStorage.setItem("onslot_users", JSON.stringify([]));
-        if (!localStorage.getItem("onslot_pending_payments")) localStorage.setItem("onslot_pending_payments", JSON.stringify([]));
-        if (!localStorage.getItem("onslot_daily_rewards")) localStorage.setItem("onslot_daily_rewards", JSON.stringify([]));
-        if (!localStorage.getItem("onslot_pending_wins")) localStorage.setItem("onslot_pending_wins", JSON.stringify([]));
-        if (!localStorage.getItem("onslot_free_credit_count")) localStorage.setItem("onslot_free_credit_count", "0");
-        if (!localStorage.getItem("onslot_free_credit_users")) localStorage.setItem("onslot_free_credit_users", JSON.stringify([]));
-        if (!localStorage.getItem("onslot_game_tokens")) localStorage.setItem("onslot_game_tokens", JSON.stringify([]));
-
+        // ============================================
+        // BACKEND API CONFIGURATION
+        // ============================================
+        // CHANGE THIS TO YOUR RENDER BACKEND URL!!!
+        const API_URL = 'https://onslot-api.onrender.com/api';
+        
+        // For local testing, use: const API_URL = 'http://localhost:5000/api';
+        
         let currentUser = null;
         let selectedGame = null;
         let selectedPaymentMethod = "bank_transfer";
-        let pendingPayments = JSON.parse(localStorage.getItem("onslot_pending_payments") || "[]");
-        let dailyRewards = JSON.parse(localStorage.getItem("onslot_daily_rewards") || "[]");
-        let pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
-        let gameTokens = JSON.parse(localStorage.getItem("onslot_game_tokens") || "[]");
-        let freeCreditCount = parseInt(localStorage.getItem("onslot_free_credit_count") || "0");
-        let freeCreditUsers = JSON.parse(localStorage.getItem("onslot_free_credit_users") || "[]");
+        let pendingPayments = [];
+        let dailyRewards = [];
+        let pendingWins = [];
         let selectedDailyRewardNetwork = "";
-        const MAX_FREE_CREDIT = 7;
+        let gameTokens = [];
         const WEBSITE_URL = "https://onslot.onrender.com";
-
-        function updateFreeCreditBanner() { const spotsLeft = MAX_FREE_CREDIT - freeCreditCount; document.getElementById("spotsLeft").textContent = spotsLeft > 0 ? spotsLeft : 0; }
-        function updateAdminBadge() { 
+        
+        // ============================================
+        // API CALL FUNCTIONS
+        // ============================================
+        
+        async function callAPI(endpoint, method = 'GET', body = null) {
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (body) options.body = JSON.stringify(body);
+            
+            try {
+                const response = await fetch(`${API_URL}${endpoint}`, options);
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showToast('Network error. Please check your connection.', 'error');
+                return null;
+            }
+        }
+        
+        // ============================================
+        // USER AUTHENTICATION
+        // ============================================
+        
+        async function signup() {
+            const name = document.getElementById("signupName").value;
+            const email = document.getElementById("signupEmail").value;
+            const phone = document.getElementById("signupPhone").value;
+            const password = document.getElementById("signupPassword").value;
+            const referralCode = document.getElementById("referralCodeInput").value;
+            
+            if (!name || !email || !phone || !password) {
+                showToast("Please fill all fields", "error");
+                return;
+            }
+            
+            const result = await callAPI('/signup', 'POST', { name, email, phone, password, referralCode });
+            
+            if (result && result.success) {
+                showToast("Account created! Please login", "success");
+                showLogin();
+                document.getElementById("signupName").value = "";
+                document.getElementById("signupEmail").value = "";
+                document.getElementById("signupPhone").value = "";
+                document.getElementById("signupPassword").value = "";
+                document.getElementById("referralCodeInput").value = "";
+            } else {
+                showToast(result?.error || "Signup failed", "error");
+            }
+        }
+        
+        async function login() {
+            const email = document.getElementById("loginEmail").value;
+            const password = document.getElementById("loginPassword").value;
+            
+            if (!email || !password) {
+                showToast("Please enter email and password", "error");
+                return;
+            }
+            
+            const result = await callAPI('/login', 'POST', { email, password });
+            
+            if (result && result.success) {
+                currentUser = result.user;
+                sessionStorage.setItem('userEmail', currentUser.email);
+                showToast("Login successful!", "success");
+                loadDashboard();
+                checkDailyReward();
+                updateFreeCreditBanner();
+            } else {
+                showToast(result?.error || "Invalid email or password", "error");
+            }
+        }
+        
+        function logout() {
+            currentUser = null;
+            sessionStorage.removeItem('userEmail');
+            document.getElementById("authSection").style.display = "flex";
+            document.getElementById("dashboardContent").style.display = "none";
+            document.getElementById("userInfo").style.display = "none";
+            document.getElementById("adminPanel").style.display = "none";
+            showLogin();
+        }
+        
+        async function loadDashboard() {
+            const savedEmail = sessionStorage.getItem('userEmail');
+            if (savedEmail) {
+                const userData = await callAPI(`/user/${encodeURIComponent(savedEmail)}`);
+                if (userData && userData.email) {
+                    currentUser = userData;
+                    document.getElementById("authSection").style.display = "none";
+                    document.getElementById("dashboardContent").style.display = "block";
+                    document.getElementById("userInfo").style.display = "flex";
+                    document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name} (${currentUser.email})`;
+                    document.getElementById("userReferralCode").textContent = currentUser.referral_code;
+                    document.getElementById("referralCount").textContent = currentUser.referral_count || 0;
+                    document.getElementById("referralsNeeded").innerHTML = `${5 - (currentUser.referral_count || 0)} referrals left = 500MB`;
+                    
+                    const adminFlag = document.getElementById("adminFlagBtn");
+                    adminFlag.onclick = function() {
+                        const pwd = prompt("Enter admin code:");
+                        if (pwd === "000") {
+                            document.getElementById("adminPanel").style.display = "block";
+                            loadAdminData();
+                        } else {
+                            showToast("Wrong admin code!", "error");
+                        }
+                    };
+                    
+                    loadAdminData();
+                    updateFreeCreditBanner();
+                    setInterval(loadAdminData, 5000);
+                    
+                    document.querySelectorAll(".admin-tab").forEach(tab => {
+                        tab.onclick = () => {
+                            document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
+                            tab.classList.add("active");
+                            document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+                            document.getElementById(`${tab.dataset.tab}Tab`).classList.add("active");
+                        };
+                    });
+                }
+            }
+        }
+        
+        // ============================================
+        // ADMIN FUNCTIONS
+        // ============================================
+        
+        async function loadAdminData() {
+            await loadPendingPayments();
+            await loadPendingDailyRewards();
+            await loadPendingWins();
+            updateAdminBadge();
+        }
+        
+        async function loadPendingPayments() {
+            const result = await callAPI('/admin/pending-payments');
+            if (result) {
+                pendingPayments = result;
+                renderPendingPayments();
+            }
+        }
+        
+        async function loadPendingWins() {
+            const result = await callAPI('/admin/pending-wins');
+            if (result) {
+                pendingWins = result;
+                renderPendingWins();
+            }
+        }
+        
+        async function loadPendingDailyRewards() {
+            const result = await callAPI('/admin/pending-daily-rewards');
+            if (result) {
+                dailyRewards = result;
+                renderDailyRewards();
+            }
+        }
+        
+        function renderPendingPayments() {
+            const container = document.getElementById("pendingOrdersList");
+            if (!container) return;
+            const pending = pendingPayments.filter(p => p.status === "pending");
+            if (pending.length === 0) {
+                container.innerHTML = '<div class="empty-orders">No pending payments</div>';
+                return;
+            }
+            container.innerHTML = pending.map((payment, idx) => `
+                <div class="pending-order">
+                    <div class="order-details">
+                        <p><strong>👤 ${payment.user_name}</strong></p>
+                        <p>📧 Email: ${payment.user_email}</p>
+                        <p>📱 Phone: ${payment.user_phone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${payment.user_phone || ""}')">Copy</button></p>
+                        <p>💰 ₦${payment.amount} for ${payment.reward}</p>
+                        <p>💳 Method: ${payment.payment_method}</p>
+                        <p>📝 Ref: ${payment.transaction_ref}</p>
+                        <p>⏰ ${payment.timestamp}</p>
+                    </div>
+                    <div class="order-actions">
+                        <button class="success-btn" onclick="approvePayment(${payment.id})"><i class="fas fa-check"></i> Success</button>
+                        <button class="decline-btn" onclick="declinePayment(${payment.id})"><i class="fas fa-times"></i> Decline</button>
+                    </div>
+                </div>
+            `).join("");
+        }
+        
+        function renderDailyRewards() {
+            const container = document.getElementById("dailyRewardsList");
+            if (!container) return;
+            const pending = dailyRewards.filter(r => r.status === "pending");
+            if (pending.length === 0) {
+                container.innerHTML = '<div class="empty-orders">No pending daily rewards</div>';
+                return;
+            }
+            container.innerHTML = pending.map((reward, idx) => `
+                <div class="daily-reward-item">
+                    <div class="reward-details">
+                        <p><strong>👤 ${reward.user_name}</strong></p>
+                        <p>📧 Email: ${reward.user_email}</p>
+                        <p>📱 Phone: ${reward.phone} <button class="copy-phone-btn" onclick="copyToClipboard('${reward.phone}')">Copy</button></p>
+                        <p>📡 Network: ${reward.network ? reward.network.toUpperCase() : "N/A"}</p>
+                        <p>💰 ₦${reward.amount} Airtime Request</p>
+                        <p>⏰ ${reward.timestamp}</p>
+                    </div>
+                    <div class="reward-actions">
+                        <button class="success-btn" onclick="approveDailyReward(${reward.id})"><i class="fas fa-check"></i> Airtime Sent</button>
+                        <button class="decline-btn" onclick="declineDailyReward(${reward.id})"><i class="fas fa-times"></i> Decline</button>
+                    </div>
+                </div>
+            `).join("");
+        }
+        
+        function renderPendingWins() {
+            const container = document.getElementById("pendingWinsList");
+            if (!container) return;
+            const pending = pendingWins.filter(w => w.status === "pending");
+            if (pending.length === 0) {
+                container.innerHTML = '<div class="empty-orders">No pending game wins</div>';
+                return;
+            }
+            container.innerHTML = pending.map((win, idx) => `
+                <div class="pending-win-item">
+                    <div class="win-details">
+                        <p><strong>👤 ${win.user_name}</strong></p>
+                        <p>📧 Email: ${win.user_email}</p>
+                        <p>📱 Phone: ${win.user_phone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${win.user_phone || ""}')">Copy</button></p>
+                        <p>📡 Network: ${win.network ? win.network.toUpperCase() : "N/A"}</p>
+                        <p>🏆 Won: ${win.reward}</p>
+                        <p>💰 Entry Fee: ₦${win.amount_paid}</p>
+                        <p>🎮 Score: ${win.score}</p>
+                        <p>⏰ ${win.timestamp}</p>
+                    </div>
+                    <div class="win-actions">
+                        <button class="success-btn" onclick="approveWin(${win.id})"><i class="fas fa-check"></i> Data Sent</button>
+                        <button class="decline-btn" onclick="declineWin(${win.id})"><i class="fas fa-times"></i> Decline</button>
+                    </div>
+                </div>
+            `).join("");
+        }
+        
+        async function approvePayment(paymentId) {
+            const result = await callAPI(`/admin/approve-payment/${paymentId}`, 'POST');
+            if (result && result.success) {
+                showToast("Payment approved! Game token created.", "success");
+                await loadPendingPayments();
+                updateAdminBadge();
+            }
+        }
+        
+        async function declinePayment(paymentId) {
+            const result = await callAPI(`/admin/decline-payment/${paymentId}`, 'POST');
+            if (result && result.success) {
+                showToast("Payment declined.", "error");
+                await loadPendingPayments();
+                updateAdminBadge();
+            }
+        }
+        
+        async function approveDailyReward(rewardId) {
+            const result = await callAPI(`/admin/approve-daily/${rewardId}`, 'POST');
+            if (result && result.success) {
+                showToast("Airtime marked as sent!", "success");
+                await loadPendingDailyRewards();
+                updateAdminBadge();
+            }
+        }
+        
+        async function declineDailyReward(rewardId) {
+            const result = await callAPI(`/admin/decline-daily/${rewardId}`, 'POST');
+            if (result && result.success) {
+                showToast("Daily reward declined.", "error");
+                await loadPendingDailyRewards();
+                updateAdminBadge();
+            }
+        }
+        
+        async function approveWin(winId) {
+            const result = await callAPI(`/admin/approve-win/${winId}`, 'POST');
+            if (result && result.success) {
+                showToast("Win approved! Data marked as sent.", "success");
+                await loadPendingWins();
+                updateAdminBadge();
+            }
+        }
+        
+        async function declineWin(winId) {
+            const result = await callAPI(`/admin/decline-win/${winId}`, 'POST');
+            if (result && result.success) {
+                showToast("Win declined.", "error");
+                await loadPendingWins();
+                updateAdminBadge();
+            }
+        }
+        
+        function updateAdminBadge() {
             const pendingPaymentsCount = pendingPayments.filter(p => p.status === "pending").length;
             const pendingRewardsCount = dailyRewards.filter(r => r.status === "pending").length;
             const pendingWinsCount = pendingWins.filter(w => w.status === "pending").length;
             const totalPending = pendingPaymentsCount + pendingRewardsCount + pendingWinsCount;
             const badge = document.getElementById("adminNotificationBadge");
             const totalBadge = document.getElementById("totalPendingBadge");
-            if (totalPending > 0) { badge.style.display = "flex"; badge.textContent = totalPending; totalBadge.textContent = totalPending; } 
-            else { badge.style.display = "none"; totalBadge.textContent = "0"; }
+            if (totalPending > 0) {
+                badge.style.display = "flex";
+                badge.textContent = totalPending;
+                totalBadge.textContent = totalPending;
+            } else {
+                badge.style.display = "none";
+                totalBadge.textContent = "0";
+            }
             document.getElementById("paymentTabCount").textContent = pendingPaymentsCount;
             document.getElementById("rewardTabCount").textContent = pendingRewardsCount;
             document.getElementById("winTabCount").textContent = pendingWinsCount;
         }
-
-        function generateReferralCode(name) { return name.substring(0, 3).toUpperCase() + Math.floor(Math.random() * 10000); }
-        function showLogin() { document.getElementById("loginForm").style.display = "block"; document.getElementById("signupForm").style.display = "none"; }
-        function showSignup() { document.getElementById("loginForm").style.display = "none"; document.getElementById("signupForm").style.display = "block"; }
-
-        function getReferralMessage() {
-            return `Join OnSlot and win data! Use my code: ${currentUser.referralCode}\n\n${WEBSITE_URL}`;
+        
+        // ============================================
+        // GAME & PAYMENT FUNCTIONS
+        // ============================================
+        
+        function updateFreeCreditBanner() {
+            // This will be handled by backend later
         }
-
+        
+        function showLogin() {
+            document.getElementById("loginForm").style.display = "block";
+            document.getElementById("signupForm").style.display = "none";
+        }
+        
+        function showSignup() {
+            document.getElementById("loginForm").style.display = "none";
+            document.getElementById("signupForm").style.display = "block";
+        }
+        
         function selectDailyRewardNetwork(network) {
             selectedDailyRewardNetwork = network;
             document.querySelectorAll('#rewardModal .network-option').forEach(opt => opt.classList.remove('selected'));
@@ -253,302 +560,183 @@
                 if (opt.innerText.toLowerCase().includes(network)) opt.classList.add('selected');
             }
         }
-
-        function signup() {
-            const name = document.getElementById("signupName").value, email = document.getElementById("signupEmail").value, phone = document.getElementById("signupPhone").value, password = document.getElementById("signupPassword").value, refCode = document.getElementById("referralCodeInput").value;
-            if (!name || !email || !phone || !password) { showToast("Please fill all fields", "error"); return; }
-            let users = JSON.parse(localStorage.getItem("onslot_users"));
-            if (users.find(u => u.email === email)) { showToast("Email already registered", "error"); return; }
-            let gotFreeCredit = false;
-            if (freeCreditCount < MAX_FREE_CREDIT && !freeCreditUsers.includes(email)) {
-                gotFreeCredit = true;
-                freeCreditCount++;
-                freeCreditUsers.push(email);
-                localStorage.setItem("onslot_free_credit_count", freeCreditCount);
-                localStorage.setItem("onslot_free_credit_users", JSON.stringify(freeCreditUsers));
-            }
-            if (refCode) {
-                const referrer = users.find(u => u.referralCode === refCode);
-                if (referrer) { referrer.referralCount = (referrer.referralCount || 0) + 1; localStorage.setItem("onslot_users", JSON.stringify(users)); }
-            }
-            const newUser = { name, email, phone, password, referralCode: generateReferralCode(name), referralCount: 0, gotFreeCredit, freeCreditClaimed: false };
-            users.push(newUser);
-            localStorage.setItem("onslot_users", JSON.stringify(users));
-            showToast("Account created! Please login", "success");
-            showLogin();
-            updateFreeCreditBanner();
-        }
-
-        function login() {
-            const email = document.getElementById("loginEmail").value, password = document.getElementById("loginPassword").value;
-            if (!email || !password) { showToast("Please enter email and password", "error"); return; }
-            const users = JSON.parse(localStorage.getItem("onslot_users"));
-            const user = users.find(u => u.email === email && u.password === password);
-            if (user) {
-                currentUser = user;
-                localStorage.setItem("onslot_current_user", JSON.stringify(user));
-                showToast("Login successful!", "success");
-                loadDashboard();
-                checkDailyReward();
-                if (user.gotFreeCredit && !user.freeCreditClaimed) { showToast("🎉 You've got ₦100 free credit!", "success"); user.freeCreditClaimed = true; localStorage.setItem("onslot_users", JSON.stringify(users)); }
-            } else { showToast("Invalid email or password", "error"); }
-        }
-
-        function logout() { localStorage.removeItem("onslot_current_user"); currentUser = null; document.getElementById("authSection").style.display = "flex"; document.getElementById("dashboardContent").style.display = "none"; document.getElementById("userInfo").style.display = "none"; document.getElementById("adminPanel").style.display = "none"; showLogin(); }
-
-        function loadDashboard() {
-            const savedUser = localStorage.getItem("onslot_current_user");
-            if (savedUser) {
-                currentUser = JSON.parse(savedUser);
-                document.getElementById("authSection").style.display = "none";
-                document.getElementById("dashboardContent").style.display = "block";
-                document.getElementById("userInfo").style.display = "flex";
-                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name} (${currentUser.email})`;
-                document.getElementById("userReferralCode").textContent = currentUser.referralCode;
-                document.getElementById("referralCount").textContent = currentUser.referralCount || 0;
-                document.getElementById("referralsNeeded").innerHTML = `${5 - (currentUser.referralCount || 0)} referrals left = 500MB`;
-                const adminFlag = document.getElementById("adminFlagBtn");
-                adminFlag.onclick = function() { const pwd = prompt("Enter admin code:"); if (pwd === "000") { document.getElementById("adminPanel").style.display = "block"; renderAllAdmin(); } else { showToast("Wrong admin code!", "error"); } };
-                renderAllAdmin();
-                updateFreeCreditBanner();
-                updateAdminBadge();
-                setInterval(() => { renderAllAdmin(); updateAdminBadge(); }, 5000);
-                document.querySelectorAll(".admin-tab").forEach(tab => {
-                    tab.onclick = () => {
-                        document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
-                        tab.classList.add("active");
-                        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-                        document.getElementById(`${tab.dataset.tab}Tab`).classList.add("active");
-                    };
-                });
-            }
-        }
-
+        
         function checkDailyReward() {
             const lastClaim = localStorage.getItem(`daily_reward_${currentUser.email}`);
             const today = new Date().toDateString();
-            if (lastClaim !== today) { 
+            if (lastClaim !== today) {
                 selectedDailyRewardNetwork = "";
                 document.querySelectorAll('#rewardModal .network-option').forEach(opt => opt.classList.remove('selected'));
-                document.getElementById("rewardModal").style.display = "flex"; 
+                document.getElementById("rewardModal").style.display = "flex";
             }
         }
-
-        function claimDailyReward() {
+        
+        async function claimDailyReward() {
             const phone = document.getElementById("rewardPhone").value;
-            if (!selectedDailyRewardNetwork) { showToast("Please select your network", "error"); return; }
-            if (!phone || !/^(0[7-9][0-1]{1}[0-9]{8})$/.test(phone)) { showToast("Enter valid phone number", "error"); return; }
-            dailyRewards.push({ id: Date.now(), userId: currentUser.email, userEmail: currentUser.email, name: currentUser.name, phone, network: selectedDailyRewardNetwork, amount: 50, timestamp: new Date().toLocaleString(), status: "pending" });
-            localStorage.setItem("onslot_daily_rewards", JSON.stringify(dailyRewards));
-            localStorage.setItem(`daily_reward_${currentUser.email}`, new Date().toDateString());
-            closeRewardModal();
-            document.getElementById("rewardPhone").value = "";
-            showToast("Request sent to admin!", "success");
-            renderAllAdmin();
-            updateAdminBadge();
+            if (!selectedDailyRewardNetwork) {
+                showToast("Please select your network", "error");
+                return;
+            }
+            if (!phone || !/^(0[7-9][0-1]{1}[0-9]{8})$/.test(phone)) {
+                showToast("Enter valid phone number", "error");
+                return;
+            }
+            
+            const result = await callAPI('/submit-daily-reward', 'POST', {
+                userEmail: currentUser.email,
+                userName: currentUser.name,
+                phone: phone,
+                network: selectedDailyRewardNetwork,
+                amount: 50
+            });
+            
+            if (result && result.success) {
+                localStorage.setItem(`daily_reward_${currentUser.email}`, new Date().toDateString());
+                closeRewardModal();
+                document.getElementById("rewardPhone").value = "";
+                showToast("Request sent to admin!", "success");
+                await loadPendingDailyRewards();
+                updateAdminBadge();
+            } else {
+                showToast("Failed to submit request", "error");
+            }
         }
-
-        function selectGame(price, reward, amount) { selectedGame = { price, reward, amount }; document.getElementById("payAmount").textContent = price; document.getElementById("paymentModal").style.display = "flex"; }
-        function selectPaymentMethod(method) { selectedPaymentMethod = method; document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected')); document.querySelector(`.payment-method[data-method="${method}"]`).classList.add('selected'); }
-
-        function submitPayment() {
+        
+        function selectGame(price, reward, amount) {
+            selectedGame = { price, reward, amount };
+            document.getElementById("payAmount").textContent = price;
+            document.getElementById("paymentModal").style.display = "flex";
+        }
+        
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`.payment-method[data-method="${method}"]`).classList.add('selected');
+        }
+        
+        async function submitPayment() {
             const transactionRef = document.getElementById("transactionRef").value;
-            if (!transactionRef) { showToast("Enter transaction reference", "error"); return; }
-            pendingPayments.push({ id: Date.now(), userEmail: currentUser.email, userName: currentUser.name, userPhone: currentUser.phone, amount: selectedGame.price, reward: selectedGame.reward, transactionRef, paymentMethod: selectedPaymentMethod, timestamp: new Date().toLocaleString(), status: "pending" });
-            localStorage.setItem("onslot_pending_payments", JSON.stringify(pendingPayments));
-            closePaymentModal();
-            document.getElementById("transactionRef").value = "";
-            showToast("Payment submitted! Admin will verify.", "success");
-            renderAllAdmin();
-            updateAdminBadge();
-        }
-
-        function renderAllAdmin() {
-            pendingPayments = JSON.parse(localStorage.getItem("onslot_pending_payments") || "[]");
-            dailyRewards = JSON.parse(localStorage.getItem("onslot_daily_rewards") || "[]");
-            pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
-            renderPendingPayments();
-            renderDailyRewards();
-            renderPendingWins();
-            updateAdminBadge();
-        }
-
-        function renderPendingPayments() {
-            const container = document.getElementById("pendingOrdersList");
-            if (!container) return;
-            const pending = pendingPayments.filter(p => p.status === "pending");
-            if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending payments</div>'; return; }
-            container.innerHTML = pending.map((payment, idx) => {
-                const actualIndex = pendingPayments.findIndex(p => p.id === payment.id);
-                return `<div class="pending-order"><div class="order-details"><p><strong>👤 ${payment.userName}</strong></p><p>📧 Email: ${payment.userEmail}</p><p>📱 Phone: ${payment.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${payment.userPhone || ""}')">Copy</button></p><p>💰 ₦${payment.amount} for ${payment.reward}</p><p>💳 Method: ${payment.paymentMethod}</p><p>📝 Ref: ${payment.transactionRef}</p><p>⏰ ${payment.timestamp}</p></div><div class="order-actions"><button class="success-btn" onclick="approvePayment(${actualIndex})"><i class="fas fa-check"></i> Success</button><button class="decline-btn" onclick="declinePayment(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
-            }).join("");
-        }
-
-        function renderDailyRewards() {
-            const container = document.getElementById("dailyRewardsList");
-            if (!container) return;
-            const pending = dailyRewards.filter(r => r.status === "pending");
-            if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending daily rewards</div>'; return; }
-            container.innerHTML = pending.map((reward, idx) => {
-                const actualIndex = dailyRewards.findIndex(r => r.id === reward.id);
-                return `<div class="daily-reward-item"><div class="reward-details"><p><strong>👤 ${reward.name}</strong></p><p>📧 Email: ${reward.userEmail || reward.userId}</p><p>📱 Phone: ${reward.phone} <button class="copy-phone-btn" onclick="copyToClipboard('${reward.phone}')">Copy</button></p><p>📡 Network: ${reward.network ? reward.network.toUpperCase() : "N/A"}</p><p>💰 ₦${reward.amount} Airtime Request</p><p>⏰ ${reward.timestamp}</p></div><div class="reward-actions"><button class="success-btn" onclick="approveReward(${actualIndex})"><i class="fas fa-check"></i> Airtime Sent</button><button class="decline-btn" onclick="declineReward(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
-            }).join("");
-        }
-
-        function renderPendingWins() {
-            const container = document.getElementById("pendingWinsList");
-            if (!container) return;
-            const pending = pendingWins.filter(w => w.status === "pending");
-            if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending game wins</div>'; return; }
-            container.innerHTML = pending.map((win, idx) => {
-                const actualIndex = pendingWins.findIndex(w => w.id === win.id);
-                return `<div class="pending-win-item"><div class="win-details"><p><strong>👤 ${win.userName}</strong></p><p>📧 Email: ${win.userEmail}</p><p>📱 Phone: ${win.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${win.userPhone || ""}')">Copy</button></p><p>📡 Network: ${win.network ? win.network.toUpperCase() : "N/A"}</p><p>🏆 Won: ${win.reward}</p><p>💰 Entry Fee: ₦${win.amountPaid}</p><p>🎮 Score: ${win.score}</p><p>⏰ ${win.timestamp}</p></div><div class="win-actions"><button class="success-btn" onclick="approveWin(${actualIndex})"><i class="fas fa-check"></i> Data Sent</button><button class="decline-btn" onclick="declineWin(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
-            }).join("");
-        }
-
-        function approvePayment(index) {
-            const payment = pendingPayments[index];
-            if (!payment || payment.status !== "pending") return;
-            payment.status = "completed";
-            localStorage.setItem("onslot_pending_payments", JSON.stringify(pendingPayments));
+            if (!transactionRef) {
+                showToast("Enter transaction reference", "error");
+                return;
+            }
             
-            const token = {
-                id: Date.now(),
-                userEmail: payment.userEmail,
-                reward: payment.reward,
-                amount: payment.amount,
-                used: false,
-                createdAt: new Date().toISOString()
-            };
-            gameTokens.push(token);
-            localStorage.setItem("onslot_game_tokens", JSON.stringify(gameTokens));
+            const result = await callAPI('/submit-payment', 'POST', {
+                userEmail: currentUser.email,
+                userName: currentUser.name,
+                userPhone: currentUser.phone,
+                amount: selectedGame.price,
+                reward: selectedGame.reward,
+                transactionRef: transactionRef,
+                paymentMethod: selectedPaymentMethod
+            });
             
-            window.approvedGameData = { reward: payment.reward, price: payment.amount, tokenId: token.id, userEmail: payment.userEmail };
-            document.getElementById("winReward").textContent = payment.reward;
-            document.getElementById("gameAccessModal").style.display = "flex";
-            renderAllAdmin();
-        }
-
-        function declinePayment(index) {
-            const payment = pendingPayments[index];
-            if (!payment || payment.status !== "pending") return;
-            payment.status = "declined";
-            localStorage.setItem("onslot_pending_payments", JSON.stringify(pendingPayments));
-            showToast(`Payment for ${payment.userName} declined`, "error");
-            renderAllAdmin();
-        }
-
-        function approveReward(index) {
-            const reward = dailyRewards[index];
-            if (!reward || reward.status !== "pending") return;
-            reward.status = "completed";
-            localStorage.setItem("onslot_daily_rewards", JSON.stringify(dailyRewards));
-            showAdminSuccessOverlay(reward.name, `₦${reward.amount} Airtime`, reward.phone, reward.network, reward.userEmail);
-            showToast(`₦${reward.amount} airtime marked as sent to ${reward.name} (${reward.userEmail})`, "success");
-            renderAllAdmin();
-        }
-
-        function declineReward(index) {
-            const reward = dailyRewards[index];
-            if (!reward || reward.status !== "pending") return;
-            reward.status = "declined";
-            localStorage.setItem("onslot_daily_rewards", JSON.stringify(dailyRewards));
-            showToast(`Reward for ${reward.name} declined`, "error");
-            renderAllAdmin();
-        }
-
-        function approveWin(index) {
-            const win = pendingWins[index];
-            if (!win || win.status !== "pending") return;
-            win.status = "completed";
-            localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
-            showAdminSuccessOverlay(win.userName, win.reward, win.userPhone, win.network, win.userEmail);
-            showToast(`${win.reward} data marked as sent to ${win.userName} (${win.userEmail})`, "success");
-            renderAllAdmin();
-        }
-
-        function declineWin(index) {
-            const win = pendingWins[index];
-            if (!win || win.status !== "pending") return;
-            win.status = "declined";
-            localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
-            showToast(`Win for ${win.userName} declined`, "error");
-            renderAllAdmin();
+            if (result && result.success) {
+                closePaymentModal();
+                document.getElementById("transactionRef").value = "";
+                showToast("Payment submitted! Admin will verify.", "success");
+                await loadPendingPayments();
+                updateAdminBadge();
+            } else {
+                showToast("Failed to submit payment", "error");
+            }
         }
         
-        function showAdminSuccessOverlay(userName, reward, phone, network, userEmail) {
-            const overlay = document.getElementById("adminSuccessOverlay");
-            overlay.innerHTML = `
-                <div class="success-overlay">
-                    <div class="success-card">
-                        <div class="check-icon"><i class="fas fa-check-circle"></i></div>
-                        <h2>REWARD SENT!</h2>
-                        <p>You have successfully sent</p>
-                        <div class="reward-highlight">${reward}</div>
-                        <p>to</p>
-                        <p><strong style="color: #f59e0b;">${userName}</strong></p>
-                        <p>Email: <strong style="color: #10b981;">${userEmail || "N/A"}</strong></p>
-                        <p>Network: <strong style="color: #10b981;">${network ? network.toUpperCase() : "N/A"}</strong></p>
-                        <p>Phone: <strong style="color: #10b981;">${phone || "N/A"}</strong></p>
-                        <div style="margin: 20px 0; padding: 10px; background: rgba(16,185,129,0.1); border-radius: 12px;">
-                            <i class="fas fa-database"></i> Reward has been credited
-                        </div>
-                        <button onclick="closeAdminSuccessOverlay()">Continue</button>
-                    </div>
-                </div>
-            `;
-            overlay.style.display = "block";
-        }
-        
-        function closeAdminSuccessOverlay() {
-            document.getElementById("adminSuccessOverlay").style.display = "none";
-        }
-
-        function playGame() {
+        async function playGame() {
             closeGameAccessModal();
-            localStorage.setItem("onslot_game_reward", window.approvedGameData.reward);
-            localStorage.setItem("onslot_game_price", window.approvedGameData.price);
-            localStorage.setItem("onslot_game_token", window.approvedGameData.tokenId);
-            localStorage.setItem("onslot_game_user", window.approvedGameData.userEmail);
-            window.location.href = "game.html?reward=" + encodeURIComponent(window.approvedGameData.reward) + "&amount=" + window.approvedGameData.price + "&token=" + window.approvedGameData.tokenId + "&user=" + encodeURIComponent(window.approvedGameData.userEmail);
+            // Get the latest token for this user
+            const paymentsResult = await callAPI('/admin/pending-payments');
+            const userPayments = paymentsResult?.filter(p => p.user_email === currentUser.email && p.status === 'completed');
+            if (userPayments && userPayments.length > 0) {
+                const latestPayment = userPayments[userPayments.length - 1];
+                window.location.href = `game.html?reward=${encodeURIComponent(latestPayment.reward)}&amount=${latestPayment.amount}&user=${encodeURIComponent(currentUser.email)}`;
+            } else {
+                showToast("No active game session found. Please pay to play.", "error");
+            }
         }
         
-        function copyToClipboard(text) { navigator.clipboard.writeText(text); showToast("Copied!", "success"); }
+        // ============================================
+        // REFERRAL SHARING
+        // ============================================
         
-        function copyReferralCode() { 
+        function getReferralMessage() {
+            return `Join OnSlot and win data! Use my code: ${currentUser.referral_code}\n\n${WEBSITE_URL}`;
+        }
+        
+        function copyReferralCode() {
             const message = getReferralMessage();
-            navigator.clipboard.writeText(message); 
-            showToast("Referral message copied!", "success"); 
+            navigator.clipboard.writeText(message);
+            showToast("Referral message copied!", "success");
         }
         
-        function shareOnWhatsApp() { 
+        function shareOnWhatsApp() {
             const message = getReferralMessage();
-            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank"); 
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
         }
         
-        function shareOnFacebook() { 
+        function shareOnFacebook() {
             const message = getReferralMessage();
-            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(WEBSITE_URL)}&quote=${encodeURIComponent(message)}`, "_blank"); 
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(WEBSITE_URL)}&quote=${encodeURIComponent(message)}`, "_blank");
         }
         
-        function shareOnTwitter() { 
+        function shareOnTwitter() {
             const message = getReferralMessage();
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`, "_blank"); 
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`, "_blank");
         }
         
-        function shareOnTelegram() { 
+        function shareOnTelegram() {
             const message = getReferralMessage();
-            window.open(`https://t.me/share/url?url=${encodeURIComponent(WEBSITE_URL)}&text=${encodeURIComponent(message)}`, "_blank"); 
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(WEBSITE_URL)}&text=${encodeURIComponent(message)}`, "_blank");
         }
         
-        function copyAccount() { navigator.clipboard.writeText("9066051034"); showToast("Account number copied!", "success"); }
-        function showToast(msg, type) { const container = document.getElementById("toastContainer"); const toast = document.createElement("div"); toast.className = `toast ${type}`; toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`; container.appendChild(toast); setTimeout(() => toast.remove(), 3000); }
-        function closePaymentModal() { document.getElementById("paymentModal").style.display = "none"; document.getElementById("transactionRef").value = ""; }
-        function closeRewardModal() { document.getElementById("rewardModal").style.display = "none"; document.getElementById("rewardPhone").value = ""; selectedDailyRewardNetwork = ""; }
-        function closeGameAccessModal() { document.getElementById("gameAccessModal").style.display = "none"; }
-        function toggleAdminPanel() { const content = document.getElementById("adminContent"); const chevron = document.getElementById("adminChevron"); content.classList.toggle("show"); chevron.style.transform = content.classList.contains("show") ? "rotate(180deg)" : "rotate(0deg)"; }
-
-        document.addEventListener("DOMContentLoaded", () => { loadDashboard(); });
+        // ============================================
+        // UTILITY FUNCTIONS
+        // ============================================
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            showToast("Copied!", "success");
+        }
+        
+        function copyAccount() {
+            navigator.clipboard.writeText("9066051034");
+            showToast("Account number copied!", "success");
+        }
+        
+        function showToast(message, type) {
+            const container = document.getElementById("toastContainer");
+            const toast = document.createElement("div");
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function closePaymentModal() {
+            document.getElementById("paymentModal").style.display = "none";
+            document.getElementById("transactionRef").value = "";
+        }
+        
+        function closeRewardModal() {
+            document.getElementById("rewardModal").style.display = "none";
+            document.getElementById("rewardPhone").value = "";
+            selectedDailyRewardNetwork = "";
+        }
+        
+        function closeGameAccessModal() {
+            document.getElementById("gameAccessModal").style.display = "none";
+        }
+        
+        function toggleAdminPanel() {
+            const content = document.getElementById("adminContent");
+            const chevron = document.getElementById("adminChevron");
+            content.classList.toggle("show");
+            chevron.style.transform = content.classList.contains("show") ? "rotate(180deg)" : "rotate(0deg)";
+        }
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            loadDashboard();
+        });
     </script>
 </body>
 </html>
