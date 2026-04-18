@@ -182,21 +182,31 @@
     const urlParams = new URLSearchParams(window.location.search);
     let targetReward = urlParams.get('reward') || localStorage.getItem("onslot_game_reward") || "500MB";
     let amountPaid = urlParams.get('amount') || localStorage.getItem("onslot_game_price") || "200";
-    let userEmail = localStorage.getItem("onslot_game_user") || "";
+    let gameToken = urlParams.get('token') || localStorage.getItem("onslot_game_token") || "";
+    let userEmail = urlParams.get('user') || localStorage.getItem("onslot_game_user") || "";
     let selectedWinNetwork = "";
+    
+    // Validate token
+    let gameTokens = JSON.parse(localStorage.getItem("onslot_game_tokens") || "[]");
+    let validToken = gameTokens.find(t => t.id == gameToken && t.userEmail === userEmail && !t.used);
+    
+    if (!validToken) {
+        alert("Invalid or expired game session. Please pay to play again.");
+        window.location.href = "index.html";
+    } else {
+        // Mark token as used
+        validToken.used = true;
+        localStorage.setItem("onslot_game_tokens", JSON.stringify(gameTokens));
+    }
     
     document.getElementById("rewardDisplay").textContent = targetReward;
     
     function selectWinNetwork(network) {
         selectedWinNetwork = network;
         document.querySelectorAll('#winPhoneModal .network-option').forEach(opt => opt.classList.remove('selected'));
-        document.querySelector(`#winPhoneModal .network-option.${network === '9mobile' ? 'network-option:last-child' : ''}`).classList.add('selected');
-        // Better way to add selected class
         const options = document.querySelectorAll('#winPhoneModal .network-option');
         for (let opt of options) {
-            if (opt.innerText.toLowerCase().includes(network)) {
-                opt.classList.add('selected');
-            }
+            if (opt.innerText.toLowerCase().includes(network)) opt.classList.add('selected');
         }
     }
     
@@ -401,12 +411,12 @@
         
         let pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
         let users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
-        let currentUser = users.find(u => u.email === userEmail);
+        let currentUserData = users.find(u => u.email === userEmail);
         
         pendingWins.push({
             id: Date.now(),
             userEmail: userEmail,
-            userName: currentUser ? currentUser.name : "Unknown",
+            userName: currentUserData ? currentUserData.name : "Unknown",
             userPhone: phone,
             network: selectedWinNetwork,
             reward: targetReward,
@@ -418,7 +428,7 @@
         localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
         
         closeWinPhoneModal();
-        alert(`✅ Request Sent!\n\nYou've won ${targetReward}!\n\nNetwork: ${selectedWinNetwork.toUpperCase()}\nPhone: ${phone}\n\nYour request has been sent to admin. You will receive your data shortly.`);
+        alert(`✅ Request Sent!\n\nYou've won ${targetReward}!\n\nEmail: ${userEmail}\nNetwork: ${selectedWinNetwork.toUpperCase()}\nPhone: ${phone}\n\nYour request has been sent to admin. You will receive your data shortly.`);
         window.location.href = "index.html";
     }
     
