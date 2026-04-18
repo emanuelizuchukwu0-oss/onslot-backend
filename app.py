@@ -7,9 +7,15 @@ import random
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
 
-# Get Database URL from environment variable (Render will set this)
+# Configure CORS properly - allow your frontend domain
+CORS(app, origins=[
+    'https://onslot-frontend.onrender.com',
+    'http://localhost:5000',
+    'http://127.0.0.1:5000'
+], supports_credentials=True)
+
+# Database connection
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 print(f"Database URL loaded: {'Yes' if DATABASE_URL else 'No'}")
@@ -104,17 +110,15 @@ def init_tables():
     except Exception as e:
         print(f"Error creating tables: {e}")
 
-# Root route
+# Routes
 @app.route('/', methods=['GET'])
 def home():
     return jsonify({'status': 'ok', 'message': 'OnSlot API is running. Use /api/health to check status.'})
 
-# Health check
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': 'OnSlot API is running'})
 
-# Signup
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.json
@@ -157,7 +161,6 @@ def signup():
         print(f"Signup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Login
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
@@ -180,7 +183,6 @@ def login():
         print(f"Login error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Get user
 @app.route('/api/user/<email>', methods=['GET'])
 def get_user(email):
     try:
@@ -195,7 +197,6 @@ def get_user(email):
         print(f"Get user error: {e}")
         return jsonify(None)
 
-# Submit payment
 @app.route('/api/submit-payment', methods=['POST'])
 def submit_payment():
     data = request.json
@@ -215,7 +216,6 @@ def submit_payment():
         print(f"Submit payment error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Get pending payments
 @app.route('/api/admin/pending-payments', methods=['GET'])
 def get_pending_payments():
     try:
@@ -230,7 +230,6 @@ def get_pending_payments():
         print(f"Get pending payments error: {e}")
         return jsonify([])
 
-# Admin: Approve payment
 @app.route('/api/admin/approve-payment/<int:payment_id>', methods=['POST'])
 def approve_payment(payment_id):
     try:
@@ -245,7 +244,6 @@ def approve_payment(payment_id):
         print(f"Approve payment error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Decline payment
 @app.route('/api/admin/decline-payment/<int:payment_id>', methods=['POST'])
 def decline_payment(payment_id):
     try:
@@ -260,7 +258,6 @@ def decline_payment(payment_id):
         print(f"Decline payment error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Submit win
 @app.route('/api/submit-win', methods=['POST'])
 def submit_win():
     data = request.json
@@ -280,7 +277,6 @@ def submit_win():
         print(f"Submit win error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Get pending wins
 @app.route('/api/admin/pending-wins', methods=['GET'])
 def get_pending_wins():
     try:
@@ -295,7 +291,6 @@ def get_pending_wins():
         print(f"Get pending wins error: {e}")
         return jsonify([])
 
-# Admin: Approve win
 @app.route('/api/admin/approve-win/<int:win_id>', methods=['POST'])
 def approve_win(win_id):
     try:
@@ -310,7 +305,6 @@ def approve_win(win_id):
         print(f"Approve win error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Decline win
 @app.route('/api/admin/decline-win/<int:win_id>', methods=['POST'])
 def decline_win(win_id):
     try:
@@ -325,7 +319,6 @@ def decline_win(win_id):
         print(f"Decline win error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Submit daily reward
 @app.route('/api/submit-daily-reward', methods=['POST'])
 def submit_daily_reward():
     data = request.json
@@ -345,7 +338,6 @@ def submit_daily_reward():
         print(f"Submit daily reward error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Get pending daily rewards
 @app.route('/api/admin/pending-daily-rewards', methods=['GET'])
 def get_pending_daily_rewards():
     try:
@@ -360,7 +352,6 @@ def get_pending_daily_rewards():
         print(f"Get daily rewards error: {e}")
         return jsonify([])
 
-# Admin: Approve daily reward
 @app.route('/api/admin/approve-daily/<int:reward_id>', methods=['POST'])
 def approve_daily(reward_id):
     try:
@@ -375,7 +366,6 @@ def approve_daily(reward_id):
         print(f"Approve daily error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# Admin: Decline daily reward
 @app.route('/api/admin/decline-daily/<int:reward_id>', methods=['POST'])
 def decline_daily(reward_id):
     try:
