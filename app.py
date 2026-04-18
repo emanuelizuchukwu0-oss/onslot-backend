@@ -299,18 +299,22 @@ def approve_payment(payment_id):
         cur.execute("SELECT * FROM pending_payments WHERE id = %s", (payment_id,))
         payment = cur.fetchone()
         
-        if payment:
-            # Update payment status
-            cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-            
-            # Create a game token for the user
-            cur.execute("""
-                INSERT INTO game_tokens (user_email, reward, amount) 
-                VALUES (%s, %s, %s)
-            """, (payment['user_email'], payment['reward'], payment['amount']))
-            
-            conn.commit()
-            print(f"✅ Payment approved and game token created for {payment['user_email']}")
+        if not payment:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Payment not found'})
+        
+        # Update payment status to completed
+        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
+        
+        # Create a game token for the user (THIS IS THE KEY STEP)
+        cur.execute("""
+            INSERT INTO game_tokens (user_email, reward, amount, used) 
+            VALUES (%s, %s, %s, false)
+        """, (payment['user_email'], payment['reward'], payment['amount']))
+        
+        conn.commit()
+        print(f"✅ Payment approved. Game token created for {payment['user_email']} - Reward: {payment['reward']}")
         
         cur.close()
         conn.close()
