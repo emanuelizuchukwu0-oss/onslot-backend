@@ -62,11 +62,12 @@
         .copy-referral-btn { background: rgba(245,158,11,0.2); border: 1px solid rgba(245,158,11,0.3); padding: 8px 20px; border-radius: 40px; color: #f59e0b; cursor: pointer; }
         .copy-referral-btn:hover { background: #f59e0b; color: white; }
         .share-buttons { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .share-btn { flex: 1; padding: 12px; border-radius: 40px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .share-btn { flex: 1; padding: 12px; border-radius: 40px; border: none; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; }
         .share-btn.whatsapp { background: #25D366; color: white; }
         .share-btn.facebook { background: #1877F2; color: white; }
         .share-btn.twitter { background: #1DA1F2; color: white; }
         .share-btn.telegram { background: #0088cc; color: white; }
+        .share-btn:hover { transform: scale(1.02); }
         .referral-stats { display: flex; justify-content: space-between; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); }
         .referral-stat { text-align: center; flex: 1; }
         .referral-stat .label { font-size: 0.7rem; color: #94a3b8; }
@@ -125,10 +126,6 @@
         .network-option { flex: 1; padding: 12px; border-radius: 40px; background: rgba(30,41,59,0.6); border: 2px solid rgba(255,255,255,0.08); text-align: center; cursor: pointer; transition: all 0.2s; }
         .network-option:hover { background: rgba(30,41,59,0.8); }
         .network-option.selected { border-color: #f59e0b; background: rgba(245,158,11,0.15); }
-        .network-option.mtn.selected { border-color: #f59e0b; }
-        .network-option.airtel.selected { border-color: #ef4444; }
-        .network-option.glo.selected { border-color: #10b981; }
-        .network-option.nine.selected { border-color: #8b5cf6; }
         .network-option i { font-size: 20px; margin-bottom: 5px; display: block; }
         .network-option span { font-size: 0.8rem; }
         .success-overlay {
@@ -193,7 +190,7 @@
     <!-- Modals -->
     <div class="modal" id="paymentModal"><div class="modal-content"><button class="modal-close" onclick="closePaymentModal()"><i class="fas fa-times"></i></button><div class="modal-icon"><i class="fas fa-money-bill-wave"></i></div><h3>Pay to Play</h3><p>Send <strong>₦<span id="payAmount">0</span></strong> to this account</p><div class="bank-details"><p><strong>Bank:</strong> Moniepoint MFB</p><p><strong>Account Name:</strong> Sunday Ijeoma Anastasia</p><p><strong>Account Number:</strong> 9066051034</p><button class="copy-btn" onclick="copyAccount()">📋 Copy Account Number</button></div><div class="payment-methods"><div class="payment-method" data-method="bank_transfer" onclick="selectPaymentMethod('bank_transfer')"><i class="fas fa-exchange-alt"></i><span>Bank Transfer</span></div><div class="payment-method" data-method="ussd" onclick="selectPaymentMethod('ussd')"><i class="fas fa-mobile-alt"></i><span>USSD Transfer</span></div><div class="payment-method" data-method="pos" onclick="selectPaymentMethod('pos')"><i class="fas fa-credit-card"></i><span>Local POS</span></div><div class="payment-method" data-method="card" onclick="selectPaymentMethod('card')"><i class="fas fa-credit-card"></i><span>Card Payment</span></div></div><input type="text" id="transactionRef" class="confirm-input" placeholder="Transaction reference / Receipt code"><button class="confirm-btn" onclick="submitPayment()"><i class="fas fa-check-circle"></i> I Have Paid - Submit</button></div></div>
     
-    <div class="modal" id="rewardModal"><div class="modal-content"><button class="modal-close" onclick="closeRewardModal()"><i class="fas fa-times"></i></button><div class="modal-icon" style="color:#10b981;"><i class="fas fa-gift"></i></div><h3>🎉 Daily Reward! 🎉</h3><p>You have <strong>₦50 airtime</strong> waiting for you!</p><div class="network-select"><label>Select Your Network:</label><div class="network-buttons"><div class="network-option mtn" onclick="selectDailyRewardNetwork('mtn')"><i class="fas fa-tower-cell"></i><span>MTN</span></div><div class="network-option airtel" onclick="selectDailyRewardNetwork('airtel')"><i class="fas fa-broadcast-tower"></i><span>Airtel</span></div><div class="network-option glo" onclick="selectDailyRewardNetwork('glo')"><i class="fas fa-globe"></i><span>Glo</span></div><div class="network-option nine" onclick="selectDailyRewardNetwork('9mobile')"><i class="fas fa-mobile-alt"></i><span>9mobile</span></div></div></div><input type="tel" id="rewardPhone" class="confirm-input" placeholder="Enter phone number for airtime" maxlength="11"><button class="confirm-btn" onclick="claimDailyReward()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-download"></i> Claim ₦50 Airtime</button></div></div>
+    <div class="modal" id="rewardModal"><div class="modal-content"><button class="modal-close" onclick="closeRewardModal()"><i class="fas fa-times"></i></button><div class="modal-icon" style="color:#10b981;"><i class="fas fa-gift"></i></div><h3>🎉 Daily Reward! 🎉</h3><p>You have <strong>₦50 airtime</strong> waiting for you!</p><div class="network-select"><label>Select Your Network:</label><div class="network-buttons"><div class="network-option" onclick="selectDailyRewardNetwork('mtn')"><i class="fas fa-tower-cell"></i><span>MTN</span></div><div class="network-option" onclick="selectDailyRewardNetwork('airtel')"><i class="fas fa-broadcast-tower"></i><span>Airtel</span></div><div class="network-option" onclick="selectDailyRewardNetwork('glo')"><i class="fas fa-globe"></i><span>Glo</span></div><div class="network-option" onclick="selectDailyRewardNetwork('9mobile')"><i class="fas fa-mobile-alt"></i><span>9mobile</span></div></div></div><input type="tel" id="rewardPhone" class="confirm-input" placeholder="Enter phone number for airtime" maxlength="11"><button class="confirm-btn" onclick="claimDailyReward()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-download"></i> Claim ₦50 Airtime</button></div></div>
     
     <div class="modal" id="gameAccessModal"><div class="modal-content"><button class="modal-close" onclick="closeGameAccessModal()"><i class="fas fa-times"></i></button><div class="modal-icon" style="color:#10b981;"><i class="fas fa-check-circle"></i></div><h3>Payment Verified!</h3><p>Click below to play and win <strong id="winReward">500MB</strong>!</p><button class="confirm-btn" onclick="playGame()" style="background:linear-gradient(135deg,#f59e0b,#d97706);"><i class="fas fa-gamepad"></i> Play Game Now</button></div></div>
     
@@ -210,6 +207,7 @@
         if (!localStorage.getItem("onslot_pending_wins")) localStorage.setItem("onslot_pending_wins", JSON.stringify([]));
         if (!localStorage.getItem("onslot_free_credit_count")) localStorage.setItem("onslot_free_credit_count", "0");
         if (!localStorage.getItem("onslot_free_credit_users")) localStorage.setItem("onslot_free_credit_users", JSON.stringify([]));
+        if (!localStorage.getItem("onslot_game_tokens")) localStorage.setItem("onslot_game_tokens", JSON.stringify([]));
 
         let currentUser = null;
         let selectedGame = null;
@@ -217,10 +215,12 @@
         let pendingPayments = JSON.parse(localStorage.getItem("onslot_pending_payments") || "[]");
         let dailyRewards = JSON.parse(localStorage.getItem("onslot_daily_rewards") || "[]");
         let pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
+        let gameTokens = JSON.parse(localStorage.getItem("onslot_game_tokens") || "[]");
         let freeCreditCount = parseInt(localStorage.getItem("onslot_free_credit_count") || "0");
         let freeCreditUsers = JSON.parse(localStorage.getItem("onslot_free_credit_users") || "[]");
         let selectedDailyRewardNetwork = "";
         const MAX_FREE_CREDIT = 7;
+        const WEBSITE_URL = "https://onslot.onrender.com";
 
         function updateFreeCreditBanner() { const spotsLeft = MAX_FREE_CREDIT - freeCreditCount; document.getElementById("spotsLeft").textContent = spotsLeft > 0 ? spotsLeft : 0; }
         function updateAdminBadge() { 
@@ -241,10 +241,17 @@
         function showLogin() { document.getElementById("loginForm").style.display = "block"; document.getElementById("signupForm").style.display = "none"; }
         function showSignup() { document.getElementById("loginForm").style.display = "none"; document.getElementById("signupForm").style.display = "block"; }
 
+        function getReferralMessage() {
+            return `Join OnSlot and win data! Use my code: ${currentUser.referralCode}\n\n${WEBSITE_URL}`;
+        }
+
         function selectDailyRewardNetwork(network) {
             selectedDailyRewardNetwork = network;
             document.querySelectorAll('#rewardModal .network-option').forEach(opt => opt.classList.remove('selected'));
-            document.querySelector(`#rewardModal .network-option.${network === '9mobile' ? 'nine' : network}`).classList.add('selected');
+            const options = document.querySelectorAll('#rewardModal .network-option');
+            for (let opt of options) {
+                if (opt.innerText.toLowerCase().includes(network)) opt.classList.add('selected');
+            }
         }
 
         function signup() {
@@ -296,7 +303,7 @@
                 document.getElementById("authSection").style.display = "none";
                 document.getElementById("dashboardContent").style.display = "block";
                 document.getElementById("userInfo").style.display = "flex";
-                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name}`;
+                document.getElementById("userNameDisplay").innerHTML = `<i class="fas fa-user-circle"></i> ${currentUser.name} (${currentUser.email})`;
                 document.getElementById("userReferralCode").textContent = currentUser.referralCode;
                 document.getElementById("referralCount").textContent = currentUser.referralCount || 0;
                 document.getElementById("referralsNeeded").innerHTML = `${5 - (currentUser.referralCount || 0)} referrals left = 500MB`;
@@ -331,7 +338,7 @@
             const phone = document.getElementById("rewardPhone").value;
             if (!selectedDailyRewardNetwork) { showToast("Please select your network", "error"); return; }
             if (!phone || !/^(0[7-9][0-1]{1}[0-9]{8})$/.test(phone)) { showToast("Enter valid phone number", "error"); return; }
-            dailyRewards.push({ id: Date.now(), userId: currentUser.email, name: currentUser.name, phone, network: selectedDailyRewardNetwork, amount: 50, timestamp: new Date().toLocaleString(), status: "pending" });
+            dailyRewards.push({ id: Date.now(), userId: currentUser.email, userEmail: currentUser.email, name: currentUser.name, phone, network: selectedDailyRewardNetwork, amount: 50, timestamp: new Date().toLocaleString(), status: "pending" });
             localStorage.setItem("onslot_daily_rewards", JSON.stringify(dailyRewards));
             localStorage.setItem(`daily_reward_${currentUser.email}`, new Date().toDateString());
             closeRewardModal();
@@ -373,7 +380,7 @@
             if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending payments</div>'; return; }
             container.innerHTML = pending.map((payment, idx) => {
                 const actualIndex = pendingPayments.findIndex(p => p.id === payment.id);
-                return `<div class="pending-order"><div class="order-details"><p><strong>👤 ${payment.userName}</strong> (${payment.userEmail})</p><p>📱 Phone: ${payment.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${payment.userPhone || ""}')">Copy</button></p><p>💰 ₦${payment.amount} for ${payment.reward}</p><p>💳 Method: ${payment.paymentMethod}</p><p>📝 Ref: ${payment.transactionRef}</p><p>⏰ ${payment.timestamp}</p></div><div class="order-actions"><button class="success-btn" onclick="approvePayment(${actualIndex})"><i class="fas fa-check"></i> Success</button><button class="decline-btn" onclick="declinePayment(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
+                return `<div class="pending-order"><div class="order-details"><p><strong>👤 ${payment.userName}</strong></p><p>📧 Email: ${payment.userEmail}</p><p>📱 Phone: ${payment.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${payment.userPhone || ""}')">Copy</button></p><p>💰 ₦${payment.amount} for ${payment.reward}</p><p>💳 Method: ${payment.paymentMethod}</p><p>📝 Ref: ${payment.transactionRef}</p><p>⏰ ${payment.timestamp}</p></div><div class="order-actions"><button class="success-btn" onclick="approvePayment(${actualIndex})"><i class="fas fa-check"></i> Success</button><button class="decline-btn" onclick="declinePayment(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
             }).join("");
         }
 
@@ -384,7 +391,7 @@
             if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending daily rewards</div>'; return; }
             container.innerHTML = pending.map((reward, idx) => {
                 const actualIndex = dailyRewards.findIndex(r => r.id === reward.id);
-                return `<div class="daily-reward-item"><div class="reward-details"><p><strong>👤 ${reward.name}</strong> (${reward.userId})</p><p>📱 Phone: ${reward.phone} <button class="copy-phone-btn" onclick="copyToClipboard('${reward.phone}')">Copy</button></p><p>📡 Network: ${reward.network ? reward.network.toUpperCase() : "N/A"}</p><p>💰 ₦${reward.amount} Airtime Request</p><p>⏰ ${reward.timestamp}</p></div><div class="reward-actions"><button class="success-btn" onclick="approveReward(${actualIndex})"><i class="fas fa-check"></i> Airtime Sent</button><button class="decline-btn" onclick="declineReward(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
+                return `<div class="daily-reward-item"><div class="reward-details"><p><strong>👤 ${reward.name}</strong></p><p>📧 Email: ${reward.userEmail || reward.userId}</p><p>📱 Phone: ${reward.phone} <button class="copy-phone-btn" onclick="copyToClipboard('${reward.phone}')">Copy</button></p><p>📡 Network: ${reward.network ? reward.network.toUpperCase() : "N/A"}</p><p>💰 ₦${reward.amount} Airtime Request</p><p>⏰ ${reward.timestamp}</p></div><div class="reward-actions"><button class="success-btn" onclick="approveReward(${actualIndex})"><i class="fas fa-check"></i> Airtime Sent</button><button class="decline-btn" onclick="declineReward(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
             }).join("");
         }
 
@@ -395,7 +402,7 @@
             if (pending.length === 0) { container.innerHTML = '<div class="empty-orders">No pending game wins</div>'; return; }
             container.innerHTML = pending.map((win, idx) => {
                 const actualIndex = pendingWins.findIndex(w => w.id === win.id);
-                return `<div class="pending-win-item"><div class="win-details"><p><strong>👤 ${win.userName}</strong> (${win.userEmail})</p><p>📱 Phone: ${win.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${win.userPhone || ""}')">Copy</button></p><p>📡 Network: ${win.network ? win.network.toUpperCase() : "N/A"}</p><p>🏆 Won: ${win.reward}</p><p>💰 Entry Fee: ₦${win.amountPaid}</p><p>🎮 Score: ${win.score}</p><p>⏰ ${win.timestamp}</p></div><div class="win-actions"><button class="success-btn" onclick="approveWin(${actualIndex})"><i class="fas fa-check"></i> Data Sent</button><button class="decline-btn" onclick="declineWin(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
+                return `<div class="pending-win-item"><div class="win-details"><p><strong>👤 ${win.userName}</strong></p><p>📧 Email: ${win.userEmail}</p><p>📱 Phone: ${win.userPhone || "N/A"} <button class="copy-phone-btn" onclick="copyToClipboard('${win.userPhone || ""}')">Copy</button></p><p>📡 Network: ${win.network ? win.network.toUpperCase() : "N/A"}</p><p>🏆 Won: ${win.reward}</p><p>💰 Entry Fee: ₦${win.amountPaid}</p><p>🎮 Score: ${win.score}</p><p>⏰ ${win.timestamp}</p></div><div class="win-actions"><button class="success-btn" onclick="approveWin(${actualIndex})"><i class="fas fa-check"></i> Data Sent</button><button class="decline-btn" onclick="declineWin(${actualIndex})"><i class="fas fa-times"></i> Decline</button></div></div>`;
             }).join("");
         }
 
@@ -404,7 +411,19 @@
             if (!payment || payment.status !== "pending") return;
             payment.status = "completed";
             localStorage.setItem("onslot_pending_payments", JSON.stringify(pendingPayments));
-            window.approvedGameData = { reward: payment.reward, price: payment.amount };
+            
+            const token = {
+                id: Date.now(),
+                userEmail: payment.userEmail,
+                reward: payment.reward,
+                amount: payment.amount,
+                used: false,
+                createdAt: new Date().toISOString()
+            };
+            gameTokens.push(token);
+            localStorage.setItem("onslot_game_tokens", JSON.stringify(gameTokens));
+            
+            window.approvedGameData = { reward: payment.reward, price: payment.amount, tokenId: token.id, userEmail: payment.userEmail };
             document.getElementById("winReward").textContent = payment.reward;
             document.getElementById("gameAccessModal").style.display = "flex";
             renderAllAdmin();
@@ -424,7 +443,8 @@
             if (!reward || reward.status !== "pending") return;
             reward.status = "completed";
             localStorage.setItem("onslot_daily_rewards", JSON.stringify(dailyRewards));
-            showToast(`₦${reward.amount} airtime marked as sent to ${reward.phone} (${reward.network})`, "success");
+            showAdminSuccessOverlay(reward.name, `₦${reward.amount} Airtime`, reward.phone, reward.network, reward.userEmail);
+            showToast(`₦${reward.amount} airtime marked as sent to ${reward.name} (${reward.userEmail})`, "success");
             renderAllAdmin();
         }
 
@@ -442,8 +462,8 @@
             if (!win || win.status !== "pending") return;
             win.status = "completed";
             localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
-            showAdminSuccessOverlay(win.userName, win.reward, win.userPhone, win.network);
-            showToast(`${win.reward} data marked as sent to ${win.userName}`, "success");
+            showAdminSuccessOverlay(win.userName, win.reward, win.userPhone, win.network, win.userEmail);
+            showToast(`${win.reward} data marked as sent to ${win.userName} (${win.userEmail})`, "success");
             renderAllAdmin();
         }
 
@@ -456,7 +476,7 @@
             renderAllAdmin();
         }
         
-        function showAdminSuccessOverlay(userName, reward, phone, network) {
+        function showAdminSuccessOverlay(userName, reward, phone, network, userEmail) {
             const overlay = document.getElementById("adminSuccessOverlay");
             overlay.innerHTML = `
                 <div class="success-overlay">
@@ -467,10 +487,11 @@
                         <div class="reward-highlight">${reward}</div>
                         <p>to</p>
                         <p><strong style="color: #f59e0b;">${userName}</strong></p>
+                        <p>Email: <strong style="color: #10b981;">${userEmail || "N/A"}</strong></p>
                         <p>Network: <strong style="color: #10b981;">${network ? network.toUpperCase() : "N/A"}</strong></p>
                         <p>Phone: <strong style="color: #10b981;">${phone || "N/A"}</strong></p>
                         <div style="margin: 20px 0; padding: 10px; background: rgba(16,185,129,0.1); border-radius: 12px;">
-                            <i class="fas fa-database"></i> Data has been credited
+                            <i class="fas fa-database"></i> Reward has been credited
                         </div>
                         <button onclick="closeAdminSuccessOverlay()">Continue</button>
                     </div>
@@ -487,16 +508,39 @@
             closeGameAccessModal();
             localStorage.setItem("onslot_game_reward", window.approvedGameData.reward);
             localStorage.setItem("onslot_game_price", window.approvedGameData.price);
-            localStorage.setItem("onslot_game_user", currentUser.email);
-            window.location.href = "game.html?reward=" + encodeURIComponent(window.approvedGameData.reward) + "&amount=" + window.approvedGameData.price;
+            localStorage.setItem("onslot_game_token", window.approvedGameData.tokenId);
+            localStorage.setItem("onslot_game_user", window.approvedGameData.userEmail);
+            window.location.href = "game.html?reward=" + encodeURIComponent(window.approvedGameData.reward) + "&amount=" + window.approvedGameData.price + "&token=" + window.approvedGameData.tokenId + "&user=" + encodeURIComponent(window.approvedGameData.userEmail);
         }
         
-        function copyToClipboard(text) { navigator.clipboard.writeText(text); showToast("Phone number copied!", "success"); }
-        function copyReferralCode() { navigator.clipboard.writeText(currentUser.referralCode); showToast("Referral code copied!", "success"); }
-        function shareOnWhatsApp() { window.open(`https://wa.me/?text=${encodeURIComponent(`Join OnSlot and win data! Use my code: ${currentUser.referralCode}`)}`, "_blank"); }
-        function shareOnFacebook() { window.open(`https://www.facebook.com/sharer/sharer.php?u=${window.location.origin}`, "_blank"); }
-        function shareOnTwitter() { window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Join OnSlot! Use my code: ${currentUser.referralCode}`)}`, "_blank"); }
-        function shareOnTelegram() { window.open(`https://t.me/share/url?url=${window.location.origin}&text=${encodeURIComponent(`Join OnSlot! Use my code: ${currentUser.referralCode}`)}`, "_blank"); }
+        function copyToClipboard(text) { navigator.clipboard.writeText(text); showToast("Copied!", "success"); }
+        
+        function copyReferralCode() { 
+            const message = getReferralMessage();
+            navigator.clipboard.writeText(message); 
+            showToast("Referral message copied!", "success"); 
+        }
+        
+        function shareOnWhatsApp() { 
+            const message = getReferralMessage();
+            window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank"); 
+        }
+        
+        function shareOnFacebook() { 
+            const message = getReferralMessage();
+            window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(WEBSITE_URL)}&quote=${encodeURIComponent(message)}`, "_blank"); 
+        }
+        
+        function shareOnTwitter() { 
+            const message = getReferralMessage();
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(message)}`, "_blank"); 
+        }
+        
+        function shareOnTelegram() { 
+            const message = getReferralMessage();
+            window.open(`https://t.me/share/url?url=${encodeURIComponent(WEBSITE_URL)}&text=${encodeURIComponent(message)}`, "_blank"); 
+        }
+        
         function copyAccount() { navigator.clipboard.writeText("9066051034"); showToast("Account number copied!", "success"); }
         function showToast(msg, type) { const container = document.getElementById("toastContainer"); const toast = document.createElement("div"); toast.className = `toast ${type}`; toast.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> ${msg}`; container.appendChild(toast); setTimeout(() => toast.remove(), 3000); }
         function closePaymentModal() { document.getElementById("paymentModal").style.display = "none"; document.getElementById("transactionRef").value = ""; }
