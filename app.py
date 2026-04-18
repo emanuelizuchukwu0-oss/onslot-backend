@@ -32,6 +32,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Users table with free_credit_claimed column
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -41,6 +42,7 @@ def init_tables():
                 password VARCHAR(255),
                 referral_code VARCHAR(50),
                 referral_count INT DEFAULT 0,
+                free_credit_claimed BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
@@ -115,6 +117,55 @@ def home():
 def health_check():
     return jsonify({'status': 'ok', 'message': 'OnSlot API is running'})
 
+# Get free credit count
+@app.route('/api/free-credit-count', methods=['GET'])
+def get_free_credit_count():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users WHERE free_credit_claimed = true")
+        claimed_count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return jsonify({'claimedCount': claimed_count})
+    except Exception as e:
+        print(f"Free credit count error: {e}")
+        return jsonify({'claimedCount': 0})
+
+# Check if user has a game token
+@app.route('/api/user-game-token/<email>', methods=['GET'])
+def get_user_game_token(email):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM game_tokens WHERE user_email = %s AND used = false ORDER BY id DESC LIMIT 1", (email,))
+        token = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if token:
+            return jsonify({'hasToken': True, 'reward': token['reward'], 'amount': token['amount'], 'tokenId': token['id']})
+        else:
+            return jsonify({'hasToken': False})
+    except Exception as e:
+        print(f"Get game token error: {e}")
+        return jsonify({'hasToken': False})
+
+# Mark token as used after game starts
+@app.route('/api/use-game-token/<int:token_id>', methods=['POST'])
+def use_game_token(token_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE game_tokens SET used = true WHERE id = %s", (token_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Use game token error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.json
@@ -147,11 +198,23 @@ def signup():
         if referral_code_input:
             cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (referral_code_input,))
         
+        # Check if this user gets free credit (first 7 users)
+        cur.execute("SELECT COUNT(*) FROM users WHERE free_credit_claimed = true")
+        claimed_count = cur.fetchone()[0]
+        
+        got_free_credit = False
+        if claimed_count < 7:
+            got_free_credit = True
+            cur.execute("UPDATE users SET free_credit_claimed = true WHERE id = %s", (user[0],))
+        
         conn.commit()
         cur.close()
         conn.close()
         
-        user_dict = {'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 'referral_code': user[4], 'referral_count': user[5]}
+        user_dict = {
+            'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
+            'referral_code': user[4], 'referral_count': user[5], 'got_free_credit': got_free_credit
+        }
         return jsonify({'success': True, 'user': user_dict})
     except Exception as e:
         print(f"Signup error: {e}")
@@ -184,7 +247,7 @@ def get_user(email):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT name, email, referral_code, referral_count FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT name, email, referral_code, referral_count, free_credit_claimed FROM users WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -230,9 +293,25 @@ def get_pending_payments():
 def approve_payment(payment_id):
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-        conn.commit()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get the payment details
+        cur.execute("SELECT * FROM pending_payments WHERE id = %s", (payment_id,))
+        payment = cur.fetchone()
+        
+        if payment:
+            # Update payment status
+            cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
+            
+            # Create a game token for the user
+            cur.execute("""
+                INSERT INTO game_tokens (user_email, reward, amount) 
+                VALUES (%s, %s, %s)
+            """, (payment['user_email'], payment['reward'], payment['amount']))
+            
+            conn.commit()
+            print(f"✅ Payment approved and game token created for {payment['user_email']}")
+        
         cur.close()
         conn.close()
         return jsonify({'success': True})
