@@ -8,12 +8,8 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Configure CORS properly - allow your frontend domain
-CORS(app, origins=[
-    'https://onslot-frontend.onrender.com',
-    'http://localhost:5000',
-    'http://127.0.0.1:5000'
-], supports_credentials=True)
+# Allow all origins - this fixes CORS issues for all devices
+CORS(app)
 
 # Database connection
 DATABASE_URL = os.environ.get('DATABASE_URL')
