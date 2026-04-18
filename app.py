@@ -141,7 +141,9 @@ def signup():
     cur.close()
     conn.close()
     
-    return jsonify({'success': True, 'user': user})
+    # Convert to dict for JSON response
+    user_dict = {'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 'referral_code': user[4], 'referral_count': user[5]}
+    return jsonify({'success': True, 'user': user_dict})
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -169,7 +171,7 @@ def get_user(email):
     user = cur.fetchone()
     cur.close()
     conn.close()
-    return jsonify(user)
+    return jsonify(user) if user else jsonify(None)
 
 # ========== PAYMENT ROUTES ==========
 
@@ -225,30 +227,6 @@ def decline_payment(payment_id):
     cur.close()
     conn.close()
     return jsonify({'success': True})
-
-# ========== GAME TOKENS ==========
-
-@app.route('/api/validate-token', methods=['POST'])
-def validate_token():
-    data = request.json
-    token_id = data.get('tokenId')
-    user_email = data.get('userEmail')
-    
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM game_tokens WHERE id = %s AND user_email = %s AND used = false", (token_id, user_email))
-    token = cur.fetchone()
-    
-    if token:
-        cur.execute("UPDATE game_tokens SET used = true WHERE id = %s", (token_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'valid': True, 'reward': token['reward'], 'amount': token['amount']})
-    
-    cur.close()
-    conn.close()
-    return jsonify({'valid': False})
 
 # ========== WIN ROUTES ==========
 
