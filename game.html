@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Jet Racer - Win Data!</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: linear-gradient(180deg, #0a0a2a 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Inter', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        .game-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(245,158,11,0.3);
+            cursor: pointer;
+            touch-action: none;
+        }
+        .game-info {
+            position: absolute;
+            top: 30px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+            pointer-events: none;
+        }
+        .score-box, .reward-box, .timer-box { background: rgba(0,0,0,0.7); padding: 8px 20px; border-radius: 30px; backdrop-filter: blur(5px); }
+        .reward-box { background: rgba(245,158,11,0.3); border: 1px solid #f59e0b; }
+        .timer-box { background: rgba(59,130,246,0.3); border: 1px solid #3b82f6; }
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px;
+            border-radius: 20px;
+            width: fit-content;
+            margin: 0 auto;
+            pointer-events: none;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: linear-gradient(135deg, #0f1923, #1a1a2e);
+            border: 2px solid #f59e0b;
+            border-radius: 32px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-content h2 { font-size: 2rem; margin-bottom: 15px; }
+        .modal-content p { color: #94a3b8; margin-bottom: 20px; }
+        .modal-content input {
+            width: 100%;
+            padding: 14px;
+            background: rgba(30,41,59,0.6);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            color: white;
+            margin: 15px 0;
+            outline: none;
+            font-size: 1rem;
+            text-align: center;
+        }
+        .modal-content input:focus { border-color: #f59e0b; }
+        .modal-content button {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border: none;
+            padding: 14px 30px;
+            border-radius: 40px;
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+        .reward-text { color: #f59e0b; font-weight: bold; font-size: 1.2rem; }
+        .network-select { margin: 15px 0; text-align: left; }
+        .network-select label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 0.8rem; }
+        .network-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        .network-option { flex: 1; padding: 12px; border-radius: 40px; background: rgba(30,41,59,0.6); border: 2px solid rgba(255,255,255,0.08); text-align: center; cursor: pointer; transition: all 0.2s; }
+        .network-option:hover { background: rgba(30,41,59,0.8); }
+        .network-option.selected { border-color: #f59e0b; background: rgba(245,158,11,0.15); }
+        .network-option i { font-size: 20px; margin-bottom: 5px; display: block; }
+        .network-option span { font-size: 0.8rem; }
+        @media (max-width: 768px) { .game-info div { padding: 4px 12px; font-size: 12px; } .modal-content { padding: 30px 20px; } .modal-content h2 { font-size: 1.5rem; } .network-buttons { flex-direction: column; } }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="game-info">
+        <div class="score-box">🏆 Score: <span id="scoreValue">0</span></div>
+        <div class="timer-box">⏱️ Time: <span id="timerValue">1:30</span></div>
+        <div class="reward-box">🎁 Win: <span id="rewardDisplay">500MB</span></div>
+    </div>
+    <canvas id="gameCanvas" width="400" height="600"></canvas>
+    <div class="controls-hint">👇 Tap/Click = Jump | ✋ Move finger/mouse left/right = Move Jet | Survive 90 seconds to WIN!</div>
+</div>
+
+<!-- Win Phone Number Modal with Network Selection -->
+<div id="winPhoneModal" class="modal">
+    <div class="modal-content">
+        <button class="modal-close" onclick="closeWinPhoneModal()"><i class="fas fa-times"></i></button>
+        <div style="font-size: 70px; color: #10b981;">🏆</div>
+        <h2 style="color: #10b981;">YOU WIN!</h2>
+        <p>You survived all 90 seconds and avoided all obstacles!</p>
+        <p>You won <span id="winRewardText" class="reward-text">500MB</span>!</p>
+        <div class="network-select">
+            <label>Select Your Network:</label>
+            <div class="network-buttons">
+                <div class="network-option" onclick="selectWinNetwork('mtn')"><i class="fas fa-tower-cell"></i><span>MTN</span></div>
+                <div class="network-option" onclick="selectWinNetwork('airtel')"><i class="fas fa-broadcast-tower"></i><span>Airtel</span></div>
+                <div class="network-option" onclick="selectWinNetwork('glo')"><i class="fas fa-globe"></i><span>Glo</span></div>
+                <div class="network-option" onclick="selectWinNetwork('9mobile')"><i class="fas fa-mobile-alt"></i><span>9mobile</span></div>
+            </div>
+        </div>
+        <input type="tel" id="winPhoneNumber" placeholder="Enter your phone number" maxlength="11">
+        <button onclick="submitWinWithPhone()"><i class="fas fa-download"></i> Claim My Prize</button>
+    </div>
+</div>
+
+<!-- Game Over Modal -->
+<div id="gameOverModal" class="modal">
+    <div class="modal-content">
+        <div style="font-size: 70px;">💥</div>
+        <h2 style="color: #ef4444;">GAME OVER!</h2>
+        <p>You hit an obstacle!</p>
+        <p>Your score: <span id="finalScore">0</span></p>
+        <button onclick="location.reload()">Try Again</button>
+        <button onclick="goBackToDashboard()" style="margin-top: 10px; background: #64748b;">Dashboard</button>
+    </div>
+</div>
+
+<script>
+    // Get game data from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    let targetReward = urlParams.get('reward') || localStorage.getItem("onslot_game_reward") || "500MB";
+    let amountPaid = urlParams.get('amount') || localStorage.getItem("onslot_game_price") || "200";
+    let userEmail = localStorage.getItem("onslot_game_user") || "";
+    let selectedWinNetwork = "";
+    
+    document.getElementById("rewardDisplay").textContent = targetReward;
+    
+    function selectWinNetwork(network) {
+        selectedWinNetwork = network;
+        document.querySelectorAll('#winPhoneModal .network-option').forEach(opt => opt.classList.remove('selected'));
+        document.querySelector(`#winPhoneModal .network-option.${network === '9mobile' ? 'network-option:last-child' : ''}`).classList.add('selected');
+        // Better way to add selected class
+        const options = document.querySelectorAll('#winPhoneModal .network-option');
+        for (let opt of options) {
+            if (opt.innerText.toLowerCase().includes(network)) {
+                opt.classList.add('selected');
+            }
+        }
+    }
+    
+    // Game variables
+    let gameRunning = true;
+    let score = 0;
+    let canvas = document.getElementById("gameCanvas");
+    let ctx = canvas.getContext("2d");
+    let jetX = canvas.width / 2 - 20;
+    let jetY = canvas.height - 80;
+    let jetVelocity = 0;
+    const JET_WIDTH = 40;
+    const JET_HEIGHT = 40;
+    const GRAVITY = 0.6;
+    const JUMP_POWER = -10;
+    const GROUND_Y = canvas.height - 60;
+    
+    let obstacles = [];
+    let frameCounter = 0;
+    let baseSpeed = 4.5;
+    let currentSpeed = baseSpeed;
+    
+    let timeLeft = 90;
+    let timerInterval = null;
+    let pointerX = jetX + JET_WIDTH/2;
+    let gameEnded = false;
+    let winTriggered = false;
+    
+    function startTimer() {
+        timerInterval = setInterval(() => {
+            if (!gameRunning || gameEnded) return;
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                gameRunning = false;
+                gameEnded = true;
+                if (!winTriggered) {
+                    winTriggered = true;
+                    showWinPhoneModal();
+                }
+            } else {
+                timeLeft--;
+                let minutes = Math.floor(timeLeft / 60);
+                let seconds = timeLeft % 60;
+                document.getElementById("timerValue").textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft === 40) { baseSpeed = 6.5; }
+                if (timeLeft === 20) { baseSpeed = 8; }
+            }
+        }, 1000);
+    }
+    
+    function drawJet(x, y) {
+        ctx.save();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "#f59e0b";
+        ctx.fillStyle = "#f59e0b";
+        ctx.beginPath();
+        ctx.moveTo(x + 20, y);
+        ctx.lineTo(x + 35, y + 18);
+        ctx.lineTo(x + 28, y + 18);
+        ctx.lineTo(x + 28, y + 30);
+        ctx.lineTo(x + 12, y + 30);
+        ctx.lineTo(x + 12, y + 18);
+        ctx.lineTo(x + 5, y + 18);
+        ctx.fill();
+        ctx.fillStyle = "#d97706";
+        ctx.fillRect(x + 15, y + 6, 10, 12);
+        ctx.fillStyle = "#f59e0b";
+        ctx.fillRect(x - 6, y + 12, 12, 6);
+        ctx.fillRect(x + 34, y + 12, 12, 6);
+        ctx.fillStyle = "#ffdd88";
+        ctx.fillRect(x + 17, y + 18, 6, 10);
+        ctx.restore();
+    }
+    
+    function drawObstacle(x, y) {
+        ctx.fillStyle = "#ef4444";
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "#ef4444";
+        ctx.fillRect(x, y, 30, 30);
+        ctx.fillStyle = "#dc2626";
+        ctx.fillRect(x + 6, y + 6, 18, 18);
+        ctx.fillStyle = "#b91c1c";
+        ctx.fillRect(x + 11, y + 11, 8, 8);
+    }
+    
+    function updateGame() {
+        if (!gameRunning || gameEnded) return;
+        
+        currentSpeed = baseSpeed + Math.floor(score / 150);
+        
+        jetVelocity += GRAVITY;
+        jetY += jetVelocity;
+        if (jetY >= GROUND_Y) { jetY = GROUND_Y; jetVelocity = 0; }
+        if (jetY < 60) jetY = 60;
+        
+        let targetX = pointerX - JET_WIDTH/2;
+        targetX = Math.max(5, Math.min(targetX, canvas.width - JET_WIDTH - 5));
+        jetX = targetX;
+        
+        frameCounter++;
+        let spawnRate = Math.max(30, 45 - Math.floor(score / 80) - (timeLeft < 40 ? 10 : 0));
+        if (frameCounter > spawnRate) {
+            frameCounter = 0;
+            obstacles.push({ x: Math.random() * (canvas.width - 35), y: -40, width: 30, height: 30 });
+        }
+        
+        for (let i = 0; i < obstacles.length; i++) {
+            obstacles[i].y += currentSpeed;
+            if (obstacles[i].y > canvas.height) {
+                obstacles.splice(i, 1);
+                i--;
+                score += 10;
+                document.getElementById("scoreValue").textContent = score;
+            }
+        }
+        
+        for (let i = 0; i < obstacles.length; i++) {
+            if (jetX < obstacles[i].x + 30 && jetX + JET_WIDTH > obstacles[i].x &&
+                jetY < obstacles[i].y + 30 && jetY + JET_HEIGHT > obstacles[i].y) {
+                gameRunning = false;
+                gameEnded = true;
+                clearInterval(timerInterval);
+                showGameOver();
+                return;
+            }
+        }
+    }
+    
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, "#1a1a3e");
+        grad.addColorStop(1, "#2d2d5e");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#3a3a5a";
+        ctx.fillRect(0, GROUND_Y + 15, canvas.width, 25);
+        ctx.fillStyle = "#4a4a6a";
+        ctx.fillRect(0, GROUND_Y + 25, canvas.width, 10);
+        
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([20, 30]);
+        for (let i = 0; i < canvas.width; i += 50) {
+            ctx.beginPath();
+            ctx.moveTo(i, GROUND_Y + 20);
+            ctx.lineTo(i + 30, GROUND_Y + 20);
+            ctx.stroke();
+        }
+        ctx.setLineDash([]);
+        
+        for (let obs of obstacles) drawObstacle(obs.x, obs.y);
+        drawJet(jetX, jetY);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 18px Arial";
+        ctx.shadowBlur = 0;
+        ctx.fillText(`Score: ${score}`, 12, 45);
+        
+        if (timeLeft <= 40 && timeLeft > 0) {
+            ctx.fillStyle = "#ff4444";
+            ctx.font = "bold 14px Arial";
+            ctx.fillText("⚡ SPEED BOOST ACTIVE!", canvas.width - 150, 45);
+        }
+        
+        ctx.fillStyle = "#10b981";
+        ctx.font = "bold 12px Arial";
+        ctx.fillText("🏁 SURVIVE 90 SECONDS TO WIN! 🏁", canvas.width/2 - 110, 30);
+    }
+    
+    function gameLoop() {
+        if (!gameRunning && gameEnded) { draw(); requestAnimationFrame(gameLoop); return; }
+        updateGame(); draw(); requestAnimationFrame(gameLoop);
+    }
+    
+    function showWinPhoneModal() {
+        selectedWinNetwork = "";
+        document.querySelectorAll('#winPhoneModal .network-option').forEach(opt => opt.classList.remove('selected'));
+        document.getElementById("winRewardText").textContent = targetReward;
+        document.getElementById("winPhoneModal").style.display = "flex";
+    }
+    
+    function closeWinPhoneModal() { document.getElementById("winPhoneModal").style.display = "none"; }
+    
+    function showGameOver() {
+        document.getElementById("finalScore").textContent = score;
+        document.getElementById("gameOverModal").style.display = "flex";
+    }
+    
+    function goBackToDashboard() { window.location.href = "index.html"; }
+    
+    function submitWinWithPhone() {
+        const phone = document.getElementById("winPhoneNumber").value;
+        if (!selectedWinNetwork) { alert("Please select your network"); return; }
+        if (!phone || !/^(0[7-9][0-1]{1}[0-9]{8})$/.test(phone)) {
+            alert("Please enter a valid phone number (e.g., 08012345678)");
+            return;
+        }
+        
+        let pendingWins = JSON.parse(localStorage.getItem("onslot_pending_wins") || "[]");
+        let users = JSON.parse(localStorage.getItem("onslot_users") || "[]");
+        let currentUser = users.find(u => u.email === userEmail);
+        
+        pendingWins.push({
+            id: Date.now(),
+            userEmail: userEmail,
+            userName: currentUser ? currentUser.name : "Unknown",
+            userPhone: phone,
+            network: selectedWinNetwork,
+            reward: targetReward,
+            amountPaid: amountPaid,
+            score: score,
+            timestamp: new Date().toLocaleString(),
+            status: "pending"
+        });
+        localStorage.setItem("onslot_pending_wins", JSON.stringify(pendingWins));
+        
+        closeWinPhoneModal();
+        alert(`✅ Request Sent!\n\nYou've won ${targetReward}!\n\nNetwork: ${selectedWinNetwork.toUpperCase()}\nPhone: ${phone}\n\nYour request has been sent to admin. You will receive your data shortly.`);
+        window.location.href = "index.html";
+    }
+    
+    function jump() {
+        if (gameRunning && !gameEnded && jetY >= GROUND_Y - 5) { jetVelocity = JUMP_POWER; }
+    }
+    
+    function handlePointerMove(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / rect.width;
+        let canvasX = (clientX - rect.left) * scaleX;
+        canvasX = Math.max(JET_WIDTH/2, Math.min(canvasX, canvas.width - JET_WIDTH/2));
+        pointerX = canvasX;
+    }
+    
+    canvas.addEventListener("mousemove", (e) => { handlePointerMove(e.clientX); });
+    canvas.addEventListener("click", () => { jump(); });
+    canvas.addEventListener("touchmove", (e) => { e.preventDefault(); handlePointerMove(e.touches[0].clientX); });
+    canvas.addEventListener("touchstart", (e) => { e.preventDefault(); jump(); handlePointerMove(e.touches[0].clientX); });
+    
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowLeft") pointerX = Math.max(JET_WIDTH/2, pointerX - 25);
+        if (e.key === "ArrowRight") pointerX = Math.min(canvas.width - JET_WIDTH/2, pointerX + 25);
+        if (e.key === "ArrowUp" || e.key === " " || e.key === "Space") { e.preventDefault(); jump(); }
+    });
+    
+    startTimer();
+    gameLoop();
+</script>
+</body>
+</html>
