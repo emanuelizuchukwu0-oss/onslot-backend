@@ -208,6 +208,20 @@ def signup():
     except Exception as e:
         print(f"Signup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+@app.route('/api/cleanup-tokens/<email>', methods=['POST'])
+def cleanup_tokens(email):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Mark all tokens older than 1 hour as used (prevents stuck tokens)
+        cur.execute("UPDATE game_tokens SET used = true WHERE user_email = %s AND used = false AND created_at < NOW() - INTERVAL '1 hour'", (email,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Cleanup error: {e}")
+        return jsonify({'success': False})
 
 @app.route('/api/login', methods=['POST'])
 def login():
