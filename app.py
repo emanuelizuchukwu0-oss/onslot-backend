@@ -78,19 +78,6 @@ def init_tables():
         """)
         
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS daily_rewards (
-                id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100),
-                user_name VARCHAR(100),
-                phone VARCHAR(20),
-                network VARCHAR(20),
-                amount INT,
-                status VARCHAR(20) DEFAULT 'pending',
-                timestamp TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        
-        cur.execute("""
             CREATE TABLE IF NOT EXISTS game_tokens (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
@@ -127,10 +114,13 @@ def get_free_credit_count():
         claimed_count = cur.fetchone()[0]
         cur.close()
         conn.close()
-        return jsonify({'claimedCount': claimed_count})
+        # Maximum 5 users can get free credit (changed from 7 to 5)
+        max_free_users = 5
+        spots_left = max_free_users - claimed_count
+        return jsonify({'claimedCount': claimed_count, 'spotsLeft': spots_left if spots_left > 0 else 0})
     except Exception as e:
         print(f"Free credit count error: {e}")
-        return jsonify({'claimedCount': 0})
+        return jsonify({'claimedCount': 0, 'spotsLeft': 5})
 
 # Check if user has a game token
 @app.route('/api/user-game-token/<email>', methods=['GET'])
@@ -198,12 +188,13 @@ def signup():
         if referral_code_input:
             cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (referral_code_input,))
         
-        # Check if this user gets free credit (first 7 users)
+        # Check if this user gets free credit (maximum 5 users, changed from 7)
         cur.execute("SELECT COUNT(*) FROM users WHERE free_credit_claimed = true")
         claimed_count = cur.fetchone()[0]
+        MAX_FREE_USERS = 5
         
         got_free_credit = False
-        if claimed_count < 7:
+        if claimed_count < MAX_FREE_USERS:
             got_free_credit = True
             cur.execute("UPDATE users SET free_credit_claimed = true WHERE id = %s", (user[0],))
         
@@ -307,7 +298,7 @@ def approve_payment(payment_id):
         # Update payment status to completed
         cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
         
-        # Create a game token for the user (THIS IS THE KEY STEP)
+        # Create a game token for the user
         cur.execute("""
             INSERT INTO game_tokens (user_email, reward, amount, used) 
             VALUES (%s, %s, %s, false)
@@ -396,67 +387,6 @@ def decline_win(win_id):
         return jsonify({'success': True})
     except Exception as e:
         print(f"Decline win error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/submit-daily-reward', methods=['POST'])
-def submit_daily_reward():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO daily_rewards (user_email, user_name, phone, network, amount) 
-            VALUES (%s, %s, %s, %s, %s)
-        """, (data.get('userEmail'), data.get('userName'), data.get('phone'),
-              data.get('network'), data.get('amount')))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Submit daily reward error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/admin/pending-daily-rewards', methods=['GET'])
-def get_pending_daily_rewards():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM daily_rewards WHERE status = 'pending' ORDER BY id DESC")
-        rewards = cur.fetchall()
-        cur.close()
-        conn.close()
-        return jsonify(rewards)
-    except Exception as e:
-        print(f"Get daily rewards error: {e}")
-        return jsonify([])
-
-@app.route('/api/admin/approve-daily/<int:reward_id>', methods=['POST'])
-def approve_daily(reward_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE daily_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Approve daily error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/admin/decline-daily/<int:reward_id>', methods=['POST'])
-def decline_daily(reward_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE daily_rewards SET status = 'declined' WHERE id = %s", (reward_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Decline daily error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 # Initialize tables
