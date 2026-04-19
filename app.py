@@ -88,6 +88,14 @@ def init_tables():
             )
         """)
         
+        # ============================================
+        # FIX STUCK TOKENS - RUNS ON EVERY SERVER START
+        # ============================================
+        # Mark all unused tokens as used (fixes stuck tokens from failed games)
+        cur.execute("UPDATE game_tokens SET used = true WHERE used = false")
+        fixed_count = cur.rowcount
+        print(f"✅ Fixed {fixed_count} stuck tokens")
+        
         conn.commit()
         cur.close()
         conn.close()
@@ -103,6 +111,24 @@ def home():
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': 'OnSlot API is running'})
+
+# ============================================
+# FIX STUCK TOKENS - MANUAL ENDPOINT
+# Visit this URL in your browser to fix tokens
+# ============================================
+@app.route('/api/fix-tokens', methods=['GET'])
+def fix_all_tokens():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE game_tokens SET used = true WHERE used = false")
+        count = cur.rowcount
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'message': f'Fixed {count} stuck tokens', 'fixed_count': count})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 # Get free credit count
 @app.route('/api/free-credit-count', methods=['GET'])
@@ -154,6 +180,7 @@ def use_game_token(token_id):
     except Exception as e:
         print(f"Use game token error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.json
@@ -208,6 +235,7 @@ def signup():
     except Exception as e:
         print(f"Signup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/api/cleanup-tokens/<email>', methods=['POST'])
 def cleanup_tokens(email):
     try:
