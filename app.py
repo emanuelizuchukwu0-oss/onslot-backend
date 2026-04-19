@@ -141,7 +141,6 @@ def get_user_game_token(email):
         print(f"Get game token error: {e}")
         return jsonify({'hasToken': False})
 
-# Mark token as used after game starts
 @app.route('/api/use-game-token/<int:token_id>', methods=['POST'])
 def use_game_token(token_id):
     try:
@@ -155,7 +154,6 @@ def use_game_token(token_id):
     except Exception as e:
         print(f"Use game token error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
 @app.route('/api/signup', methods=['POST'])
 def signup():
     data = request.json
