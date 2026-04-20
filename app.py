@@ -26,6 +26,25 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
+# Drop and recreate all tables for a FRESH START
+def reset_tables():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Drop all existing tables (fresh start)
+        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
+        cur.execute("DROP TABLE IF EXISTS data_plans CASCADE")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE")
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ All tables dropped - Fresh start!")
+    except Exception as e:
+        print(f"Error dropping tables: {e}")
+
 # Create tables on startup
 def init_tables():
     try:
@@ -131,13 +150,18 @@ def init_tables():
                     INSERT INTO data_plans (network, plan_size, plan_name, price) 
                     VALUES (%s, %s, %s, %s)
                 """, plan)
+            print("✅ Default data plans inserted")
         
         conn.commit()
         cur.close()
         conn.close()
-        print("Tables created successfully!")
+        print("✅ Tables created successfully - Fresh database ready!")
     except Exception as e:
         print(f"Error creating tables: {e}")
+
+# Reset and initialize
+reset_tables()
+init_tables()
 
 # Routes
 @app.route('/', methods=['GET'])
@@ -292,9 +316,7 @@ def approve_funding(payment_id):
         payment = cur.fetchone()
         
         if payment:
-            # Update payment status
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-            # Add to user's wallet balance
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (payment[4], payment[1]))
         
         conn.commit()
@@ -328,7 +350,6 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Check if user has enough balance
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
         balance = cur.fetchone()[0]
         
@@ -337,11 +358,9 @@ def submit_purchase():
             conn.close()
             return jsonify({'success': False, 'error': 'Insufficient wallet balance'})
         
-        # Deduct from wallet
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (data.get('amount'), data.get('userEmail')))
         
-        # Create pending purchase
         cur.execute("""
             INSERT INTO pending_purchases (user_email, user_name, user_phone, network, plan_id, plan_name, plan_size, amount, phone_number) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -391,12 +410,10 @@ def decline_purchase(purchase_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Get purchase details to refund
         cur.execute("SELECT * FROM pending_purchases WHERE id = %s", (purchase_id,))
         purchase = cur.fetchone()
         
         if purchase:
-            # Refund the amount to user's wallet
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (purchase[7], purchase[1]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
         
@@ -416,7 +433,6 @@ def referral_reward():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # Give 500MB worth of credit (₦400) for 5 referrals
         cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400 WHERE email = %s AND referral_count >= 5", 
                    (data.get('userEmail'),))
         conn.commit()
@@ -426,9 +442,6 @@ def referral_reward():
     except Exception as e:
         print(f"Referral reward error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
-# Initialize tables
-init_tables()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
