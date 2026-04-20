@@ -52,7 +52,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with wallet balance and referral reward claimed - EMPTY
+        # Users table with wallet balance and referral reward claimed
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -172,7 +172,7 @@ def init_tables():
         cur.close()
         conn.close()
         print("✅ Tables created successfully - COMPLETELY FRESH DATABASE! NO USERS EXIST.")
-        print("✅ First person to sign up will be the very first user!")
+        print("✅ Referral reward: 5 referrals = 500MB (₦400 credit)")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
@@ -443,7 +443,7 @@ def decline_purchase(purchase_id):
         print(f"Decline purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ REFERRAL REWARDS ============
+# ============ REFERRAL REWARDS (5 referrals = 500MB / ₦400) ============
 
 @app.route('/api/submit-referral-reward', methods=['POST'])
 def submit_referral_reward():
