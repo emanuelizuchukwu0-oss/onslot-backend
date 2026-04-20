@@ -26,13 +26,13 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
-# Drop and recreate all tables for a FRESH START
+# Drop and recreate all tables for a COMPLETELY FRESH START (NO USERS)
 def reset_tables():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Drop all existing tables (fresh start)
+        # Drop all existing tables (fresh start - NO USERS)
         cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
@@ -42,7 +42,7 @@ def reset_tables():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ All tables dropped - Fresh start!")
+        print("✅ All tables dropped - Fresh start! NO USERS EXIST.")
     except Exception as e:
         print(f"Error dropping tables: {e}")
 
@@ -52,7 +52,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with wallet balance and referral reward claimed
+        # Users table with wallet balance and referral reward claimed - EMPTY
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -171,18 +171,19 @@ def init_tables():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tables created successfully - Fresh database ready!")
+        print("✅ Tables created successfully - COMPLETELY FRESH DATABASE! NO USERS EXIST.")
+        print("✅ First person to sign up will be the very first user!")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
-# Reset and initialize
+# Reset and initialize (THIS DELETES ALL USERS AND DATA)
 reset_tables()
 init_tables()
 
 # Routes
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running'})
+    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running - FRESH START'})
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
@@ -488,7 +489,6 @@ def approve_referral(reward_id):
         reward = cur.fetchone()
         
         if reward:
-            # Credit the wallet
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (reward[5], reward[1]))
             cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
         
@@ -512,23 +512,6 @@ def decline_referral(reward_id):
         return jsonify({'success': True})
     except Exception as e:
         print(f"Decline referral error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-# ============ REFERRAL COUNT UPDATE ============
-
-@app.route('/api/update-referral-count', methods=['POST'])
-def update_referral_count():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (data.get('referralCode'),))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Update referral count error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
