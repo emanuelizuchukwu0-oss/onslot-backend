@@ -8,7 +8,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Allow all origins - this fixes CORS issues for all devices
+# Allow all origins
 CORS(app)
 
 # Database connection
@@ -32,7 +32,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with free_credit_claimed column
+        # Users table with wallet balance
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -42,19 +42,32 @@ def init_tables():
                 password VARCHAR(255),
                 referral_code VARCHAR(50),
                 referral_count INT DEFAULT 0,
-                free_credit_claimed BOOLEAN DEFAULT FALSE,
+                wallet_balance INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
         
+        # Data plans table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS data_plans (
+                id SERIAL PRIMARY KEY,
+                network VARCHAR(20),
+                plan_size VARCHAR(20),
+                plan_name VARCHAR(100),
+                price INT,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # Pending payments (wallet funding)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
-                amount VARCHAR(20),
-                reward VARCHAR(50),
+                amount INT,
                 transaction_ref VARCHAR(100),
                 payment_method VARCHAR(50),
                 status VARCHAR(20) DEFAULT 'pending',
@@ -62,55 +75,62 @@ def init_tables():
             )
         """)
         
+        # Pending data purchases
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_wins (
+            CREATE TABLE IF NOT EXISTS pending_purchases (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
                 network VARCHAR(20),
-                reward VARCHAR(50),
-                amount_paid VARCHAR(20),
-                score INT,
-                status VARCHAR(20) DEFAULT 'pending',
-                timestamp TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS game_tokens (
-                id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100),
-                reward VARCHAR(50),
-                amount VARCHAR(20),
-                used BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        
-        # ============================================
-        # FREE CREDITS TABLE - NEW
-        # ============================================
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS free_credits (
-                id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100),
-                user_name VARCHAR(100),
-                phone VARCHAR(20),
-                network VARCHAR(20),
+                plan_id INT,
+                plan_name VARCHAR(100),
+                plan_size VARCHAR(20),
                 amount INT,
+                phone_number VARCHAR(20),
                 status VARCHAR(20) DEFAULT 'pending',
                 timestamp TIMESTAMP DEFAULT NOW()
             )
         """)
         
-        # ============================================
-        # FIX STUCK TOKENS - RUNS ON EVERY SERVER START
-        # ============================================
-        # Mark all unused tokens as used (fixes stuck tokens from failed games)
-        cur.execute("UPDATE game_tokens SET used = true WHERE used = false")
-        fixed_count = cur.rowcount
-        print(f"✅ Fixed {fixed_count} stuck tokens")
+        # Insert default data plans
+        cur.execute("SELECT COUNT(*) FROM data_plans")
+        if cur.fetchone()[0] == 0:
+            default_plans = [
+                # MTN Plans
+                ('mtn', '200MB', 'MTN 200MB Data', 200),
+                ('mtn', '500MB', 'MTN 500MB Data', 450),
+                ('mtn', '1GB', 'MTN 1GB Data', 850),
+                ('mtn', '2GB', 'MTN 2GB Data', 1600),
+                ('mtn', '5GB', 'MTN 5GB Data', 3800),
+                ('mtn', '10GB', 'MTN 10GB Data', 7000),
+                # Airtel Plans
+                ('airtel', '200MB', 'Airtel 200MB Data', 190),
+                ('airtel', '500MB', 'Airtel 500MB Data', 440),
+                ('airtel', '1GB', 'Airtel 1GB Data', 830),
+                ('airtel', '2GB', 'Airtel 2GB Data', 1550),
+                ('airtel', '5GB', 'Airtel 5GB Data', 3700),
+                ('airtel', '10GB', 'Airtel 10GB Data', 6800),
+                # Glo Plans
+                ('glo', '200MB', 'Glo 200MB Data', 180),
+                ('glo', '500MB', 'Glo 500MB Data', 430),
+                ('glo', '1GB', 'Glo 1GB Data', 820),
+                ('glo', '2GB', 'Glo 2GB Data', 1500),
+                ('glo', '5GB', 'Glo 5GB Data', 3600),
+                ('glo', '10GB', 'Glo 10GB Data', 6500),
+                # 9mobile Plans
+                ('9mobile', '200MB', '9mobile 200MB Data', 210),
+                ('9mobile', '500MB', '9mobile 500MB Data', 460),
+                ('9mobile', '1GB', '9mobile 1GB Data', 880),
+                ('9mobile', '2GB', '9mobile 2GB Data', 1650),
+                ('9mobile', '5GB', '9mobile 5GB Data', 3900),
+                ('9mobile', '10GB', '9mobile 10GB Data', 7200),
+            ]
+            for plan in default_plans:
+                cur.execute("""
+                    INSERT INTO data_plans (network, plan_size, plan_name, price) 
+                    VALUES (%s, %s, %s, %s)
+                """, plan)
         
         conn.commit()
         cur.close()
@@ -122,168 +142,13 @@ def init_tables():
 # Routes
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({'status': 'ok', 'message': 'OnSlot API is running. Use /api/health to check status.'})
+    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running'})
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    return jsonify({'status': 'ok', 'message': 'OnSlot API is running'})
+    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running'})
 
-# ============================================
-# FIX STUCK TOKENS - MANUAL ENDPOINT
-# Visit this URL in your browser to fix tokens
-# ============================================
-@app.route('/api/fix-tokens', methods=['GET'])
-def fix_all_tokens():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE game_tokens SET used = true WHERE used = false")
-        count = cur.rowcount
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True, 'message': f'Fixed {count} stuck tokens', 'fixed_count': count})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
-
-# Get free credit count
-@app.route('/api/free-credit-count', methods=['GET'])
-def get_free_credit_count():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users WHERE free_credit_claimed = true")
-        claimed_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        # Maximum 5 users can get free credit
-        max_free_users = 5
-        spots_left = max_free_users - claimed_count
-        return jsonify({'claimedCount': claimed_count, 'spotsLeft': spots_left if spots_left > 0 else 0})
-    except Exception as e:
-        print(f"Free credit count error: {e}")
-        return jsonify({'claimedCount': 0, 'spotsLeft': 5})
-
-# ============================================
-# FREE CREDIT REQUESTS - NEW
-# ============================================
-
-@app.route('/api/submit-free-credit', methods=['POST'])
-def submit_free_credit():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO free_credits (user_email, user_name, phone, network, amount) 
-            VALUES (%s, %s, %s, %s, %s)
-        """, (data.get('userEmail'), data.get('userName'), data.get('phone'),
-              data.get('network'), data.get('amount')))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Submit free credit error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/mark-free-credit-claimed', methods=['POST'])
-def mark_free_credit_claimed():
-    data = request.json
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET free_credit_claimed = true WHERE email = %s", (data.get('userEmail'),))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Mark free credit claimed error: {e}")
-        return jsonify({'success': False})
-
-@app.route('/api/admin/free-credits', methods=['GET'])
-def get_free_credits():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM free_credits WHERE status = 'pending' ORDER BY id DESC")
-        credits = cur.fetchall()
-        cur.close()
-        conn.close()
-        return jsonify(credits)
-    except Exception as e:
-        print(f"Get free credits error: {e}")
-        return jsonify([])
-
-@app.route('/api/admin/approve-free-credit/<int:credit_id>', methods=['POST'])
-def approve_free_credit(credit_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE free_credits SET status = 'completed' WHERE id = %s", (credit_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Approve free credit error: {e}")
-        return jsonify({'success': False})
-
-@app.route('/api/admin/decline-free-credit/<int:credit_id>', methods=['POST'])
-def decline_free_credit(credit_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE free_credits SET status = 'declined' WHERE id = %s", (credit_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Decline free credit error: {e}")
-        return jsonify({'success': False})
-
-# ============================================
-# GAME TOKEN ENDPOINTS
-# ============================================
-
-# Check if user has a game token
-@app.route('/api/user-game-token/<email>', methods=['GET'])
-def get_user_game_token(email):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM game_tokens WHERE user_email = %s AND used = false ORDER BY id DESC LIMIT 1", (email,))
-        token = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if token:
-            return jsonify({'hasToken': True, 'reward': token['reward'], 'amount': token['amount'], 'tokenId': token['id']})
-        else:
-            return jsonify({'hasToken': False})
-    except Exception as e:
-        print(f"Get game token error: {e}")
-        return jsonify({'hasToken': False})
-
-@app.route('/api/use-game-token/<int:token_id>', methods=['POST'])
-def use_game_token(token_id):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE game_tokens SET used = true WHERE id = %s", (token_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Use game token error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-# ============================================
-# USER AUTHENTICATION
-# ============================================
+# ============ USER AUTHENTICATION ============
 
 @app.route('/api/signup', methods=['POST'])
 def signup():
@@ -309,7 +174,7 @@ def signup():
         cur.execute("""
             INSERT INTO users (name, email, phone, password, referral_code) 
             VALUES (%s, %s, %s, %s, %s) 
-            RETURNING id, name, email, phone, referral_code, referral_count
+            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
         """, (name, email, phone, password, referral_code))
         
         user = cur.fetchone()
@@ -317,42 +182,18 @@ def signup():
         if referral_code_input:
             cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (referral_code_input,))
         
-        # Check if this user gets free credit (maximum 5 users)
-        cur.execute("SELECT COUNT(*) FROM users WHERE free_credit_claimed = true")
-        claimed_count = cur.fetchone()[0]
-        MAX_FREE_USERS = 5
-        
-        got_free_credit = False
-        if claimed_count < MAX_FREE_USERS:
-            got_free_credit = True
-            cur.execute("UPDATE users SET free_credit_claimed = true WHERE id = %s", (user[0],))
-        
         conn.commit()
         cur.close()
         conn.close()
         
         user_dict = {
             'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
-            'referral_code': user[4], 'referral_count': user[5], 'got_free_credit': got_free_credit
+            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6]
         }
         return jsonify({'success': True, 'user': user_dict})
     except Exception as e:
         print(f"Signup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
-@app.route('/api/cleanup-tokens/<email>', methods=['POST'])
-def cleanup_tokens(email):
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE game_tokens SET used = true WHERE user_email = %s AND used = false AND created_at < NOW() - INTERVAL '1 hour'", (email,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Cleanup error: {e}")
-        return jsonify({'success': False})
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -381,7 +222,7 @@ def get_user(email):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT name, email, referral_code, referral_count, free_credit_claimed FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT name, email, referral_code, referral_count, wallet_balance FROM users WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -390,31 +231,45 @@ def get_user(email):
         print(f"Get user error: {e}")
         return jsonify(None)
 
-# ============================================
-# PAYMENT ROUTES
-# ============================================
+# ============ DATA PLANS ============
 
-@app.route('/api/submit-payment', methods=['POST'])
-def submit_payment():
+@app.route('/api/data-plans', methods=['GET'])
+def get_data_plans():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM data_plans WHERE is_active = true ORDER BY network, price")
+        plans = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(plans)
+    except Exception as e:
+        print(f"Get data plans error: {e}")
+        return jsonify([])
+
+# ============ WALLET FUNDING ============
+
+@app.route('/api/submit-funding', methods=['POST'])
+def submit_funding():
     data = request.json
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO pending_payments (user_email, user_name, user_phone, amount, reward, transaction_ref, payment_method) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO pending_payments (user_email, user_name, user_phone, amount, transaction_ref, payment_method) 
+            VALUES (%s, %s, %s, %s, %s, %s)
         """, (data.get('userEmail'), data.get('userName'), data.get('userPhone'), 
-              data.get('amount'), data.get('reward'), data.get('transactionRef'), data.get('paymentMethod')))
+              data.get('amount'), data.get('transactionRef'), data.get('paymentMethod')))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Submit payment error: {e}")
+        print(f"Submit funding error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/admin/pending-payments', methods=['GET'])
-def get_pending_payments():
+@app.route('/api/admin/pending-funding', methods=['GET'])
+def get_pending_funding():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
@@ -424,45 +279,34 @@ def get_pending_payments():
         conn.close()
         return jsonify(payments)
     except Exception as e:
-        print(f"Get pending payments error: {e}")
+        print(f"Get pending funding error: {e}")
         return jsonify([])
 
-@app.route('/api/admin/approve-payment/<int:payment_id>', methods=['POST'])
-def approve_payment(payment_id):
+@app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
+def approve_funding(payment_id):
     try:
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor()
         
-        # Get the payment details
         cur.execute("SELECT * FROM pending_payments WHERE id = %s", (payment_id,))
         payment = cur.fetchone()
         
-        if not payment:
-            cur.close()
-            conn.close()
-            return jsonify({'success': False, 'error': 'Payment not found'})
-        
-        # Update payment status to completed
-        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-        
-        # Create a game token for the user
-        cur.execute("""
-            INSERT INTO game_tokens (user_email, reward, amount, used) 
-            VALUES (%s, %s, %s, false)
-        """, (payment['user_email'], payment['reward'], payment['amount']))
+        if payment:
+            # Update payment status
+            cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
+            # Add to user's wallet balance
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (payment[4], payment[1]))
         
         conn.commit()
-        print(f"✅ Payment approved. Game token created for {payment['user_email']} - Reward: {payment['reward']}")
-        
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Approve payment error: {e}")
+        print(f"Approve funding error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/admin/decline-payment/<int:payment_id>', methods=['POST'])
-def decline_payment(payment_id):
+@app.route('/api/admin/decline-funding/<int:payment_id>', methods=['POST'])
+def decline_funding(payment_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -472,72 +316,115 @@ def decline_payment(payment_id):
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Decline payment error: {e}")
+        print(f"Decline funding error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============================================
-# WIN ROUTES
-# ============================================
+# ============ DATA PURCHASE ============
 
-@app.route('/api/submit-win', methods=['POST'])
-def submit_win():
+@app.route('/api/submit-purchase', methods=['POST'])
+def submit_purchase():
     data = request.json
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # Check if user has enough balance
+        cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
+        balance = cur.fetchone()[0]
+        
+        if balance < data.get('amount'):
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Insufficient wallet balance'})
+        
+        # Deduct from wallet
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
+                   (data.get('amount'), data.get('userEmail')))
+        
+        # Create pending purchase
         cur.execute("""
-            INSERT INTO pending_wins (user_email, user_name, user_phone, network, reward, amount_paid, score) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO pending_purchases (user_email, user_name, user_phone, network, plan_id, plan_name, plan_size, amount, phone_number) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (data.get('userEmail'), data.get('userName'), data.get('userPhone'),
-              data.get('network'), data.get('reward'), data.get('amountPaid'), data.get('score')))
+              data.get('network'), data.get('planId'), data.get('planName'), 
+              data.get('planSize'), data.get('amount'), data.get('phoneNumber')))
+        
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Submit win error: {e}")
+        print(f"Submit purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/admin/pending-wins', methods=['GET'])
-def get_pending_wins():
+@app.route('/api/admin/pending-purchases', methods=['GET'])
+def get_pending_purchases():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM pending_wins WHERE status = 'pending' ORDER BY id DESC")
-        wins = cur.fetchall()
+        cur.execute("SELECT * FROM pending_purchases WHERE status = 'pending' ORDER BY id DESC")
+        purchases = cur.fetchall()
         cur.close()
         conn.close()
-        return jsonify(wins)
+        return jsonify(purchases)
     except Exception as e:
-        print(f"Get pending wins error: {e}")
+        print(f"Get pending purchases error: {e}")
         return jsonify([])
 
-@app.route('/api/admin/approve-win/<int:win_id>', methods=['POST'])
-def approve_win(win_id):
+@app.route('/api/admin/approve-purchase/<int:purchase_id>', methods=['POST'])
+def approve_purchase(purchase_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE pending_wins SET status = 'completed' WHERE id = %s", (win_id,))
+        cur.execute("UPDATE pending_purchases SET status = 'completed' WHERE id = %s", (purchase_id,))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Approve win error: {e}")
+        print(f"Approve purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/admin/decline-win/<int:win_id>', methods=['POST'])
-def decline_win(win_id):
+@app.route('/api/admin/decline-purchase/<int:purchase_id>', methods=['POST'])
+def decline_purchase(purchase_id):
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE pending_wins SET status = 'declined' WHERE id = %s", (win_id,))
+        
+        # Get purchase details to refund
+        cur.execute("SELECT * FROM pending_purchases WHERE id = %s", (purchase_id,))
+        purchase = cur.fetchone()
+        
+        if purchase:
+            # Refund the amount to user's wallet
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (purchase[7], purchase[1]))
+            cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
+        
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Decline win error: {e}")
+        print(f"Decline purchase error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============ REFERRAL ============
+
+@app.route('/api/referral-reward', methods=['POST'])
+def referral_reward():
+    data = request.json
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        # Give 500MB worth of credit (₦400) for 5 referrals
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400 WHERE email = %s AND referral_count >= 5", 
+                   (data.get('userEmail'),))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Referral reward error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 # Initialize tables
