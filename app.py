@@ -33,6 +33,7 @@ def reset_tables():
         cur = conn.cursor()
         
         # Drop all existing tables (fresh start)
+        cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
         cur.execute("DROP TABLE IF EXISTS data_plans CASCADE")
@@ -51,7 +52,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with wallet balance
+        # Users table with wallet balance and referral reward claimed
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -61,6 +62,7 @@ def init_tables():
                 password VARCHAR(255),
                 referral_code VARCHAR(50),
                 referral_count INT DEFAULT 0,
+                referral_reward_claimed BOOLEAN DEFAULT FALSE,
                 wallet_balance INT DEFAULT 0,
                 created_at TIMESTAMP DEFAULT NOW()
             )
@@ -107,6 +109,20 @@ def init_tables():
                 plan_size VARCHAR(20),
                 amount INT,
                 phone_number VARCHAR(20),
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # Referral Rewards table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS referral_rewards (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(100),
+                user_name VARCHAR(100),
+                phone VARCHAR(20),
+                network VARCHAR(20),
+                amount INT,
                 status VARCHAR(20) DEFAULT 'pending',
                 timestamp TIMESTAMP DEFAULT NOW()
             )
@@ -198,7 +214,7 @@ def signup():
         cur.execute("""
             INSERT INTO users (name, email, phone, password, referral_code) 
             VALUES (%s, %s, %s, %s, %s) 
-            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
+            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance, referral_reward_claimed
         """, (name, email, phone, password, referral_code))
         
         user = cur.fetchone()
@@ -212,7 +228,8 @@ def signup():
         
         user_dict = {
             'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
-            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6]
+            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6],
+            'referral_reward_claimed': user[7]
         }
         return jsonify({'success': True, 'user': user_dict})
     except Exception as e:
@@ -246,7 +263,7 @@ def get_user(email):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT name, email, referral_code, referral_count, wallet_balance FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT name, email, referral_code, referral_count, wallet_balance, referral_reward_claimed FROM users WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -425,22 +442,93 @@ def decline_purchase(purchase_id):
         print(f"Decline purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ REFERRAL ============
+# ============ REFERRAL REWARDS ============
 
-@app.route('/api/referral-reward', methods=['POST'])
-def referral_reward():
+@app.route('/api/submit-referral-reward', methods=['POST'])
+def submit_referral_reward():
     data = request.json
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400 WHERE email = %s AND referral_count >= 5", 
-                   (data.get('userEmail'),))
+        cur.execute("""
+            INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
+            VALUES (%s, %s, %s, %s, %s)
+        """, (data.get('userEmail'), data.get('userName'), data.get('phone'), 
+              data.get('network'), data.get('amount')))
+        cur.execute("UPDATE users SET referral_reward_claimed = true WHERE email = %s", (data.get('userEmail'),))
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Referral reward error: {e}")
+        print(f"Submit referral reward error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/admin/pending-referrals', methods=['GET'])
+def get_pending_referrals():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM referral_rewards WHERE status = 'pending' ORDER BY id DESC")
+        rewards = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(rewards)
+    except Exception as e:
+        print(f"Get pending referrals error: {e}")
+        return jsonify([])
+
+@app.route('/api/admin/approve-referral/<int:reward_id>', methods=['POST'])
+def approve_referral(reward_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT * FROM referral_rewards WHERE id = %s", (reward_id,))
+        reward = cur.fetchone()
+        
+        if reward:
+            # Credit the wallet
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (reward[5], reward[1]))
+            cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Approve referral error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/admin/decline-referral/<int:reward_id>', methods=['POST'])
+def decline_referral(reward_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE referral_rewards SET status = 'declined' WHERE id = %s", (reward_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Decline referral error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============ REFERRAL COUNT UPDATE ============
+
+@app.route('/api/update-referral-count', methods=['POST'])
+def update_referral_count():
+    data = request.json
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (data.get('referralCode'),))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Update referral count error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
