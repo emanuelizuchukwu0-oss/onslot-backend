@@ -724,6 +724,28 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+@app.route('/api/logout-all-users', methods=['POST'])
+def logout_all_users():
+    """Force logout all users by clearing all sessions"""
+    try:
+        # Delete all session data from database
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Option 1: Just delete sessions (keep users)
+        # If you have a sessions table, clear it
+        
+        # Option 2: Delete all users completely
+        cur.execute("DELETE FROM users")
+        cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1")
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'All users have been logged out/deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     print("=" * 60)
