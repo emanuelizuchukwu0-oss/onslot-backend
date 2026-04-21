@@ -640,11 +640,12 @@ def decline_referral(reward_id):
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
+# ============ INITIALIZE DATABASE ON STARTUP ============
+print("🔄 Initializing database...")
+init_database()
+print("✅ Database initialization complete!")
+
 if __name__ == '__main__':
-    # Initialize database
-    init_database()
-    
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 Server starting on port {port}...")
-    print(f"📍 API URL: http://localhost:{port}/api")
     app.run(host='0.0.0.0', port=port, debug=True)
