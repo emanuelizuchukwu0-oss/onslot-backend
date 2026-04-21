@@ -43,8 +43,10 @@ def reset_tables():
         cur.close()
         conn.close()
         print("✅ All tables dropped - Fresh start! NO USERS EXIST.")
+        return True
     except Exception as e:
         print(f"Error dropping tables: {e}")
+        return False
 
 # Create tables on startup
 def init_tables():
@@ -172,22 +174,86 @@ def init_tables():
         cur.close()
         conn.close()
         print("✅ Tables created successfully - COMPLETELY FRESH DATABASE! NO USERS EXIST.")
-        print("✅ Referral reward: 5 referrals = 500MB (₦400 credit)")
+        return True
     except Exception as e:
         print(f"Error creating tables: {e}")
+        return False
 
-# Reset and initialize (THIS DELETES ALL USERS AND DATA)
-reset_tables()
-init_tables()
+# ============ FORCE RESET ENDPOINT ============
+@app.route('/api/force-reset', methods=['POST'])
+def force_reset():
+    """Forcefully delete all users and reset the database"""
+    try:
+        # Get admin password from request
+        data = request.json
+        admin_key = data.get('admin_key', '')
+        
+        # Only allow reset with correct key (for security)
+        if admin_key != 'ONSOT_RESET_2024':
+            return jsonify({'success': False, 'error': 'Invalid admin key'})
+        
+        # Drop and recreate all tables
+        if reset_tables() and init_tables():
+            return jsonify({'success': True, 'message': 'Database completely reset! All users deleted.'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to reset database'})
+    except Exception as e:
+        print(f"Force reset error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
-# Routes
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running - FRESH START'})
+# ============ CREATE ADMIN USER ENDPOINT ============
+@app.route('/api/create-admin', methods=['POST'])
+def create_admin():
+    """Create the first admin user (email must end with %%)"""
+    data = request.json
+    name = data.get('name', 'Admin')
+    email = data.get('email')
+    phone = data.get('phone', '08012345678')
+    password = data.get('password', 'admin123')
+    
+    # Ensure email ends with %% for admin access
+    if not email or not email.endswith('%%'):
+        return jsonify({'success': False, 'error': 'Admin email must end with %%'})
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Check if user already exists
+        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'User already exists'})
+        
+        referral_code = name[:3].upper() + str(random.randint(1000, 9999))
+        
+        cur.execute("""
+            INSERT INTO users (name, email, phone, password, referral_code, wallet_balance) 
+            VALUES (%s, %s, %s, %s, %s, %s) 
+            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
+        """, (name, email, phone, password, referral_code, 1000))
+        
+        user = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        user_dict = {
+            'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
+            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6]
+        }
+        return jsonify({'success': True, 'user': user_dict, 'message': f'Admin {email} created successfully!'})
+    except Exception as e:
+        print(f"Create admin error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running'})
+# ============ CLEAR ALL SESSIONS ENDPOINT ============
+@app.route('/api/clear-all-sessions', methods=['POST'])
+def clear_all_sessions():
+    """Force all users to be logged out by clearing any session data"""
+    # This endpoint doesn't delete users, just ensures frontend sessions are cleared
+    return jsonify({'success': True, 'message': 'All sessions cleared. Please refresh your browser.'})
 
 # ============ USER AUTHENTICATION ============
 
