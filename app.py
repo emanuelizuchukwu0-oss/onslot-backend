@@ -11,32 +11,47 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# Database connection
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
 def hash_password(password):
-    """Hash password using SHA256"""
     return hashlib.sha256(password.encode()).hexdigest()
 
 def get_db_connection():
     if not DATABASE_URL:
         raise Exception("DATABASE_URL environment variable not set!")
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        return conn
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        raise e
+    return psycopg2.connect(DATABASE_URL)
 
-# Initialize database tables
-def init_db():
+def clear_existing_data():
+    """Clear all existing data for fresh start"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Create users table
+        # Drop all tables to ensure fresh start
+        cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
+        cur.execute("DROP TABLE IF EXISTS data_plans CASCADE")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE")
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Cleared all existing tables")
+        return True
+    except Exception as e:
+        print(f"Error clearing data: {e}")
+        return False
+
+def init_db():
+    """Initialize fresh database tables"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Users table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 email VARCHAR(100) UNIQUE NOT NULL,
@@ -50,9 +65,9 @@ def init_db():
             )
         """)
         
-        # Create data_plans table
+        # Data plans table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS data_plans (
+            CREATE TABLE data_plans (
                 id SERIAL PRIMARY KEY,
                 network VARCHAR(20) NOT NULL,
                 plan_size VARCHAR(20) NOT NULL,
@@ -63,9 +78,9 @@ def init_db():
             )
         """)
         
-        # Create pending_payments table
+        # Pending payments table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_payments (
+            CREATE TABLE pending_payments (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -79,9 +94,9 @@ def init_db():
             )
         """)
         
-        # Create pending_purchases table
+        # Pending purchases table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_purchases (
+            CREATE TABLE pending_purchases (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -96,9 +111,9 @@ def init_db():
             )
         """)
         
-        # Create referral_rewards table
+        # Referral rewards table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS referral_rewards (
+            CREATE TABLE referral_rewards (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -110,47 +125,42 @@ def init_db():
             )
         """)
         
-        # Insert default data plans if not exists
-        cur.execute("SELECT COUNT(*) FROM data_plans")
-        if cur.fetchone()[0] == 0:
-            default_plans = [
-                # MTN Plans
-                ('mtn', '500MB', 'MTN 500MB Data', 200, '7 days'),
-                ('mtn', '1GB', 'MTN 1GB Data', 350, '7 days'),
-                ('mtn', '2GB', 'MTN 2GB Data', 800, '7 days'),
-                ('mtn', '3GB', 'MTN 3GB Data', 1200, '30 days'),
-                ('mtn', '5GB', 'MTN 5GB Data', 1900, '30 days'),
-                # Airtel Plans
-                ('airtel', '300MB', 'Airtel 300MB Data', 200, '2 days'),
-                ('airtel', '600MB', 'Airtel 600MB Data', 300, '2 days'),
-                ('airtel', '1.5GB', 'Airtel 1.5GB Data', 350, '2 days'),
-                ('airtel', '2GB', 'Airtel 2GB Data', 400, '2 days'),
-                ('airtel', '6GB', 'Airtel 6GB Data', 2600, '7 days'),
-                # Glo Plans
-                ('glo', '200MB', 'Glo 200MB Data', 99, '2 days'),
-                ('glo', '500MB', 'Glo 500MB Data', 200, '2 days'),
-                ('glo', '1GB', 'Glo 1GB Data', 350, '7 days'),
-                ('glo', '2GB', 'Glo 2GB Data', 700, '7 days'),
-                ('glo', '5GB', 'Glo 5GB Data', 1500, '7 days'),
-                # 9mobile Plans
-                ('9mobile', '250MB', '9mobile 250MB Data', 100, '7 days'),
-                ('9mobile', '500MB', '9mobile 500MB Data', 200, '7 days'),
-                ('9mobile', '1GB', '9mobile 1GB Data', 450, '7 days'),
-                ('9mobile', '2GB', '9mobile 2GB Data', 800, '7 days'),
-                ('9mobile', '5.2GB', '9mobile 5.2GB Data', 2300, '30 days'),
-            ]
-            for plan in default_plans:
-                cur.execute("""
-                    INSERT INTO data_plans (network, plan_size, plan_name, price, validity) 
-                    VALUES (%s, %s, %s, %s, %s)
-                """, plan)
-            print("✅ Default data plans inserted")
+        # Insert default data plans
+        default_plans = [
+            ('mtn', '500MB', 'MTN 500MB Data', 200, '7 days'),
+            ('mtn', '1GB', 'MTN 1GB Data', 350, '7 days'),
+            ('mtn', '2GB', 'MTN 2GB Data', 800, '7 days'),
+            ('mtn', '3GB', 'MTN 3GB Data', 1200, '30 days'),
+            ('mtn', '5GB', 'MTN 5GB Data', 1900, '30 days'),
+            ('airtel', '300MB', 'Airtel 300MB Data', 200, '2 days'),
+            ('airtel', '600MB', 'Airtel 600MB Data', 300, '2 days'),
+            ('airtel', '1.5GB', 'Airtel 1.5GB Data', 350, '2 days'),
+            ('airtel', '2GB', 'Airtel 2GB Data', 400, '2 days'),
+            ('airtel', '6GB', 'Airtel 6GB Data', 2600, '7 days'),
+            ('glo', '200MB', 'Glo 200MB Data', 99, '2 days'),
+            ('glo', '500MB', 'Glo 500MB Data', 200, '2 days'),
+            ('glo', '1GB', 'Glo 1GB Data', 350, '7 days'),
+            ('glo', '2GB', 'Glo 2GB Data', 700, '7 days'),
+            ('glo', '5GB', 'Glo 5GB Data', 1500, '7 days'),
+            ('9mobile', '250MB', '9mobile 250MB Data', 100, '7 days'),
+            ('9mobile', '500MB', '9mobile 500MB Data', 200, '7 days'),
+            ('9mobile', '1GB', '9mobile 1GB Data', 450, '7 days'),
+            ('9mobile', '2GB', '9mobile 2GB Data', 800, '7 days'),
+            ('9mobile', '5.2GB', '9mobile 5.2GB Data', 2300, '30 days'),
+        ]
+        
+        for plan in default_plans:
+            cur.execute("""
+                INSERT INTO data_plans (network, plan_size, plan_name, price, validity) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, plan)
         
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Database initialized successfully!")
+        print("✅ Database initialized fresh with no users!")
         return True
+        
     except Exception as e:
         print(f"Database initialization error: {e}")
         return False
@@ -192,10 +202,10 @@ def signup():
         hashed_password = hash_password(password)
         
         cur.execute("""
-            INSERT INTO users (name, email, phone, password, referral_code) 
-            VALUES (%s, %s, %s, %s, %s) 
+            INSERT INTO users (name, email, phone, password, referral_code, wallet_balance) 
+            VALUES (%s, %s, %s, %s, %s, %s) 
             RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
-        """, (name, email, phone, hashed_password, referral_code))
+        """, (name, email, phone, hashed_password, referral_code, 0))
         
         user = cur.fetchone()
         
@@ -206,6 +216,21 @@ def signup():
                 SET referral_count = referral_count + 1 
                 WHERE referral_code = %s AND email != %s
             """, (referral_code_input, email))
+            conn.commit()
+            
+            # Check if referrer reached 5 referrals
+            cur.execute("""
+                SELECT email, referral_count, referral_reward_claimed 
+                FROM users WHERE referral_code = %s
+            """, (referral_code_input,))
+            referrer = cur.fetchone()
+            
+            if referrer and referrer[1] >= 5 and not referrer[2]:
+                # Auto-create referral reward request
+                cur.execute("""
+                    INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (referrer[0], '', '', '', 400))
         
         conn.commit()
         
@@ -408,47 +433,6 @@ def submit_purchase():
         print(f"Submit purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ REFERRAL REWARDS ============
-
-@app.route('/api/submit-referral-reward', methods=['POST'])
-def submit_referral_reward():
-    try:
-        data = request.json
-        user_email = data.get('userEmail', '').strip().lower()
-        user_name = data.get('userName', '').strip()
-        phone = data.get('phone', '').strip()
-        network = data.get('network', '').strip()
-        amount = data.get('amount', 400)
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Check if already claimed
-        cur.execute("SELECT referral_reward_claimed FROM users WHERE email = %s", (user_email,))
-        result = cur.fetchone()
-        
-        if result and result[0]:
-            cur.close()
-            conn.close()
-            return jsonify({'success': False, 'error': 'Reward already claimed'})
-        
-        cur.execute("""
-            INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
-            VALUES (%s, %s, %s, %s, %s)
-        """, (user_email, user_name, phone, network, amount))
-        
-        cur.execute("UPDATE users SET referral_reward_claimed = true WHERE email = %s", (user_email,))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Referral reward request submitted'})
-    
-    except Exception as e:
-        print(f"Submit referral reward error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
 # ============ ADMIN ENDPOINTS ============
 
 @app.route('/api/admin/pending-funding', methods=['GET'])
@@ -475,7 +459,7 @@ def approve_funding(payment_id):
         payment = cur.fetchone()
         
         if payment:
-            total_amount = payment[4] + payment[5]  # amount + service_charge
+            total_amount = payment[4] + payment[5]
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, payment[1]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -540,7 +524,7 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
-            total_amount = purchase[6] + purchase[7]  # plan_price + service_charge
+            total_amount = purchase[6] + purchase[7]
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, purchase[1]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
@@ -577,10 +561,10 @@ def approve_referral(reward_id):
         reward = cur.fetchone()
         
         if reward:
-            # Add reward amount to wallet (500MB worth = ₦400)
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                       (reward[6], reward[1]))  # amount
+                       (reward[6], reward[1]))
             cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
+            cur.execute("UPDATE users SET referral_reward_claimed = true WHERE email = %s", (reward[1],))
             conn.commit()
         
         cur.close()
@@ -604,47 +588,41 @@ def decline_referral(reward_id):
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ CLEAR DATABASE (FOR TESTING) ============
+# ============ RESET DATABASE FOR FRESH START ============
 
-@app.route('/api/clear-database', methods=['POST'])
-def clear_database():
-    """Clear all users and pending records - Use with caution!"""
+@app.route('/api/reset-database', methods=['POST'])
+def reset_database():
+    """Completely reset database for fresh launch"""
     try:
         data = request.json
         secret = data.get('secret', '')
         
-        # Only allow with secret key
-        if secret != 'ONSOT_CLEAR_2024':
-            return jsonify({'success': False, 'error': 'Unauthorized'})
+        # Security: Only allow with secret key
+        if secret != 'LAUNCH_2024_FRESH':
+            return jsonify({'success': False, 'error': 'Unauthorized. Invalid secret key.'})
         
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Clear all tables
-        cur.execute("DELETE FROM referral_rewards")
-        cur.execute("DELETE FROM pending_purchases")
-        cur.execute("DELETE FROM pending_payments")
-        cur.execute("DELETE FROM users")
-        
-        # Reset sequences
-        cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1")
-        cur.execute("ALTER SEQUENCE pending_payments_id_seq RESTART WITH 1")
-        cur.execute("ALTER SEQUENCE pending_purchases_id_seq RESTART WITH 1")
-        cur.execute("ALTER SEQUENCE referral_rewards_id_seq RESTART WITH 1")
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'Database cleared successfully!'})
-    
+        # Clear existing data
+        if clear_existing_data():
+            # Initialize fresh database
+            if init_db():
+                return jsonify({'success': True, 'message': 'Database reset complete! Fresh start with no users.'})
+            else:
+                return jsonify({'success': False, 'error': 'Failed to initialize database'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to clear existing data'})
+            
     except Exception as e:
-        print(f"Clear database error: {e}")
+        print(f"Reset database error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
-    # Initialize database on startup
+    # Clear and initialize fresh database on startup
+    print("🚀 Starting OnSlot Backend...")
+    print("🗑️  Clearing existing data...")
+    clear_existing_data()
+    print("📦 Initializing fresh database...")
     init_db()
+    print("✅ Ready to launch! Database is fresh with no users.")
     
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
