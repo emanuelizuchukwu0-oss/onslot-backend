@@ -26,13 +26,13 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
-# Drop and recreate all tables for a COMPLETELY FRESH START (NO USERS)
+# Drop and recreate all tables for a COMPLETELY FRESH START
 def reset_tables():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Drop all existing tables (fresh start - NO USERS)
+        # Drop all existing tables
         cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
@@ -42,7 +42,7 @@ def reset_tables():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ All tables dropped - Fresh start! NO USERS EXIST.")
+        print("✅ All tables dropped - Fresh start!")
         return True
     except Exception as e:
         print(f"Error dropping tables: {e}")
@@ -54,7 +54,7 @@ def init_tables():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with wallet balance and referral reward claimed
+        # Users table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -109,7 +109,8 @@ def init_tables():
                 plan_id INT,
                 plan_name VARCHAR(100),
                 plan_size VARCHAR(20),
-                amount INT,
+                plan_price INT,
+                validity VARCHAR(50),
                 phone_number VARCHAR(20),
                 status VARCHAR(20) DEFAULT 'pending',
                 timestamp TIMESTAMP DEFAULT NOW()
@@ -135,33 +136,32 @@ def init_tables():
         if cur.fetchone()[0] == 0:
             default_plans = [
                 # MTN Plans
-                ('mtn', '200MB', 'MTN 200MB Data', 200),
-                ('mtn', '500MB', 'MTN 500MB Data', 450),
-                ('mtn', '1GB', 'MTN 1GB Data', 850),
-                ('mtn', '2GB', 'MTN 2GB Data', 1600),
-                ('mtn', '5GB', 'MTN 5GB Data', 3800),
-                ('mtn', '10GB', 'MTN 10GB Data', 7000),
+                ('mtn', '500MB', 'MTN 500MB Data', 200),
+                ('mtn', '1GB', 'MTN 1GB Data', 350),
+                ('mtn', '2GB', 'MTN 2GB Data', 800),
+                ('mtn', '3GB', 'MTN 3GB Data', 1200),
+                ('mtn', '5GB', 'MTN 5GB Data', 1900),
                 # Airtel Plans
-                ('airtel', '200MB', 'Airtel 200MB Data', 190),
-                ('airtel', '500MB', 'Airtel 500MB Data', 440),
-                ('airtel', '1GB', 'Airtel 1GB Data', 830),
-                ('airtel', '2GB', 'Airtel 2GB Data', 1550),
-                ('airtel', '5GB', 'Airtel 5GB Data', 3700),
-                ('airtel', '10GB', 'Airtel 10GB Data', 6800),
+                ('airtel', '300MB', 'Airtel 300MB Data', 200),
+                ('airtel', '600MB', 'Airtel 600MB Data', 300),
+                ('airtel', '1.5GB', 'Airtel 1.5GB Data', 350),
+                ('airtel', '2GB', 'Airtel 2GB Data', 400),
+                ('airtel', '6GB', 'Airtel 6GB Data', 2600),
+                ('airtel', '10GB', 'Airtel 10GB Data', 399),
                 # Glo Plans
-                ('glo', '200MB', 'Glo 200MB Data', 180),
-                ('glo', '500MB', 'Glo 500MB Data', 430),
-                ('glo', '1GB', 'Glo 1GB Data', 820),
-                ('glo', '2GB', 'Glo 2GB Data', 1500),
-                ('glo', '5GB', 'Glo 5GB Data', 3600),
-                ('glo', '10GB', 'Glo 10GB Data', 6500),
+                ('glo', '200MB', 'Glo 200MB Data', 99),
+                ('glo', '500MB', 'Glo 500MB Data', 200),
+                ('glo', '1GB', 'Glo 1GB Data', 350),
+                ('glo', '2GB', 'Glo 2GB Data', 700),
+                ('glo', '5GB', 'Glo 5GB Data', 1500),
+                ('glo', '10GB', 'Glo 10GB Data', 2500),
                 # 9mobile Plans
-                ('9mobile', '200MB', '9mobile 200MB Data', 210),
-                ('9mobile', '500MB', '9mobile 500MB Data', 460),
-                ('9mobile', '1GB', '9mobile 1GB Data', 880),
-                ('9mobile', '2GB', '9mobile 2GB Data', 1650),
-                ('9mobile', '5GB', '9mobile 5GB Data', 3900),
-                ('9mobile', '10GB', '9mobile 10GB Data', 7200),
+                ('9mobile', '250MB', '9mobile 250MB Data', 100),
+                ('9mobile', '500MB', '9mobile 500MB Data', 200),
+                ('9mobile', '1GB', '9mobile 1GB Data', 450),
+                ('9mobile', '2GB', '9mobile 2GB Data', 800),
+                ('9mobile', '5.2GB', '9mobile 5.2GB Data', 2300),
+                ('9mobile', '11.4GB', '9mobile 11.4GB Data', 5000),
             ]
             for plan in default_plans:
                 cur.execute("""
@@ -173,7 +173,7 @@ def init_tables():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tables created successfully - COMPLETELY FRESH DATABASE! NO USERS EXIST.")
+        print("✅ Tables created successfully!")
         return True
     except Exception as e:
         print(f"Error creating tables: {e}")
@@ -182,36 +182,27 @@ def init_tables():
 # ============ FORCE RESET ENDPOINT ============
 @app.route('/api/force-reset', methods=['POST'])
 def force_reset():
-    """Forcefully delete all users and reset the database"""
     try:
-        # Get admin password from request
         data = request.json
         admin_key = data.get('admin_key', '')
-        
-        # Only allow reset with correct key (for security)
         if admin_key != 'ONSOT_RESET_2024':
             return jsonify({'success': False, 'error': 'Invalid admin key'})
-        
-        # Drop and recreate all tables
         if reset_tables() and init_tables():
-            return jsonify({'success': True, 'message': 'Database completely reset! All users deleted.'})
+            return jsonify({'success': True, 'message': 'Database completely reset!'})
         else:
             return jsonify({'success': False, 'error': 'Failed to reset database'})
     except Exception as e:
-        print(f"Force reset error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 # ============ CREATE ADMIN USER ENDPOINT ============
 @app.route('/api/create-admin', methods=['POST'])
 def create_admin():
-    """Create the first admin user (email must end with %%)"""
     data = request.json
     name = data.get('name', 'Admin')
     email = data.get('email')
     phone = data.get('phone', '08012345678')
     password = data.get('password', 'admin123')
     
-    # Ensure email ends with %% for admin access
     if not email or not email.endswith('%%'):
         return jsonify({'success': False, 'error': 'Admin email must end with %%'})
     
@@ -219,7 +210,6 @@ def create_admin():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Check if user already exists
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cur.fetchone():
             cur.close()
@@ -231,7 +221,7 @@ def create_admin():
         cur.execute("""
             INSERT INTO users (name, email, phone, password, referral_code, wallet_balance) 
             VALUES (%s, %s, %s, %s, %s, %s) 
-            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
+            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance, referral_reward_claimed
         """, (name, email, phone, password, referral_code, 1000))
         
         user = cur.fetchone()
@@ -241,19 +231,13 @@ def create_admin():
         
         user_dict = {
             'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
-            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6]
+            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6],
+            'referral_reward_claimed': user[7]
         }
-        return jsonify({'success': True, 'user': user_dict, 'message': f'Admin {email} created successfully!'})
+        return jsonify({'success': True, 'user': user_dict})
     except Exception as e:
         print(f"Create admin error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
-# ============ CLEAR ALL SESSIONS ENDPOINT ============
-@app.route('/api/clear-all-sessions', methods=['POST'])
-def clear_all_sessions():
-    """Force all users to be logged out by clearing any session data"""
-    # This endpoint doesn't delete users, just ensures frontend sessions are cleared
-    return jsonify({'success': True, 'message': 'All sessions cleared. Please refresh your browser.'})
 
 # ============ USER AUTHENTICATION ============
 
@@ -435,22 +419,23 @@ def submit_purchase():
         cur = conn.cursor()
         
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
-        balance = cur.fetchone()[0]
+        result = cur.fetchone()
+        balance = result[0] if result else 0
         
-        if balance < data.get('amount'):
+        if balance < data.get('totalAmount'):
             cur.close()
             conn.close()
             return jsonify({'success': False, 'error': 'Insufficient wallet balance'})
         
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
-                   (data.get('amount'), data.get('userEmail')))
+                   (data.get('totalAmount'), data.get('userEmail')))
         
         cur.execute("""
-            INSERT INTO pending_purchases (user_email, user_name, user_phone, network, plan_id, plan_name, plan_size, amount, phone_number) 
+            INSERT INTO pending_purchases (user_email, user_name, user_phone, network, plan_name, plan_size, plan_price, validity, phone_number) 
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (data.get('userEmail'), data.get('userName'), data.get('userPhone'),
-              data.get('network'), data.get('planId'), data.get('planName'), 
-              data.get('planSize'), data.get('amount'), data.get('phoneNumber')))
+              data.get('network'), data.get('planName'), data.get('planSize'), 
+              data.get('planPrice'), data.get('validity'), data.get('phoneNumber')))
         
         conn.commit()
         cur.close()
@@ -509,7 +494,7 @@ def decline_purchase(purchase_id):
         print(f"Decline purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ REFERRAL REWARDS (5 referrals = 500MB / ₦400) ============
+# ============ REFERRAL REWARDS ============
 
 @app.route('/api/submit-referral-reward', methods=['POST'])
 def submit_referral_reward():
@@ -579,6 +564,10 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+
+# Reset and initialize
+reset_tables()
+init_tables()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
