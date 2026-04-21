@@ -7,7 +7,6 @@ import random
 import hashlib
 import re
 from datetime import datetime
-import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -29,8 +28,35 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
+def clear_all_users():
+    """DELETE ALL USERS AND DATA - FRESH START"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Delete all data from all tables
+        cur.execute("DELETE FROM referral_rewards")
+        cur.execute("DELETE FROM pending_purchases")
+        cur.execute("DELETE FROM pending_payments")
+        cur.execute("DELETE FROM users")
+        
+        # Reset sequences
+        cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1")
+        cur.execute("ALTER SEQUENCE pending_payments_id_seq RESTART WITH 1")
+        cur.execute("ALTER SEQUENCE pending_purchases_id_seq RESTART WITH 1")
+        cur.execute("ALTER SEQUENCE referral_rewards_id_seq RESTART WITH 1")
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ All users and data cleared! Database is fresh.")
+        return True
+    except Exception as e:
+        print(f"Error clearing users: {e}")
+        return False
+
 def init_database():
-    """Initialize database tables"""
+    """Initialize database tables (without clearing existing data)"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -111,7 +137,7 @@ def init_database():
             )
         """)
         
-        # Insert default data plans
+        # Insert default data plans if none exist
         cur.execute("SELECT COUNT(*) FROM data_plans")
         if cur.fetchone()[0] == 0:
             default_plans = [
@@ -150,11 +176,55 @@ def init_database():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Database initialized successfully!")
+        print("✅ Database tables ready!")
         return True
     except Exception as e:
         print(f"Database initialization error: {e}")
         return False
+
+# ============ CLEAR DATABASE ENDPOINT ============
+
+@app.route('/api/clear-all-users', methods=['POST'])
+def clear_all_users_endpoint():
+    """Clear all users and data - FRESH START FOR LAUNCH"""
+    try:
+        data = request.json
+        secret = data.get('secret', '')
+        
+        # Security: Only allow with correct secret key
+        if secret != 'LAUNCH_FRESH_2024':
+            return jsonify({'success': False, 'error': 'Unauthorized. Invalid secret key.'})
+        
+        if clear_all_users():
+            return jsonify({'success': True, 'message': 'All users cleared! Database is fresh. No users exist.'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to clear users'})
+    except Exception as e:
+        print(f"Clear users error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============ RESET AND INIT FRESH DATABASE ============
+
+@app.route('/api/reset-fresh', methods=['POST'])
+def reset_fresh():
+    """Completely reset database - DELETE EVERYTHING and start fresh"""
+    try:
+        data = request.json
+        secret = data.get('secret', '')
+        
+        if secret != 'LAUNCH_FRESH_2024':
+            return jsonify({'success': False, 'error': 'Unauthorized'})
+        
+        # Clear all users
+        clear_all_users()
+        
+        # Re-initialize tables (this keeps data plans but no users)
+        init_database()
+        
+        return jsonify({'success': True, 'message': 'Database reset complete! No users exist. Ready for launch.'})
+    except Exception as e:
+        print(f"Reset fresh error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 # ============ USER AUTHENTICATION ============
 
@@ -193,10 +263,10 @@ def signup():
         hashed_password = hash_password(password)
         
         cur.execute("""
-            INSERT INTO users (name, email, phone, password, referral_code) 
-            VALUES (%s, %s, %s, %s, %s) 
+            INSERT INTO users (name, email, phone, password, referral_code, wallet_balance) 
+            VALUES (%s, %s, %s, %s, %s, %s) 
             RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
-        """, (name, email, phone, hashed_password, referral_code))
+        """, (name, email, phone, hashed_password, referral_code, 0))
         
         user = cur.fetchone()
         
@@ -628,9 +698,40 @@ def decline_referral(reward_id):
 def health_check():
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
+# ============ GET USER COUNT (For debugging) ============
+
+@app.route('/api/user-count', methods=['GET'])
+def user_count():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM users")
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return jsonify({'count': count})
+    except Exception as e:
+        return jsonify({'count': 0, 'error': str(e)})
+
 if __name__ == '__main__':
-    # Initialize database
+    print("=" * 50)
+    print("🚀 STARTING ONSLOT BACKEND")
+    print("=" * 50)
+    
+    # Initialize database (creates tables if they don't exist)
     init_database()
+    
+    # OPTIONAL: Uncomment the line below to clear ALL users on startup
+    # This will ensure NO users exist when the app starts
+    print("🗑️  Clearing all existing users...")
+    clear_all_users()
+    print("✅ Database is FRESH! No users exist.")
+    
+    print("=" * 50)
+    print("📝 READY FOR LAUNCH!")
+    print("📧 Admin emails must end with: %%")
+    print("💡 Example admin email: admin@example.com%%")
+    print("=" * 50)
     
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
