@@ -34,7 +34,7 @@ def force_clear_all_users():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Drop and recreate tables to ensure complete wipe
+        # Drop all tables to ensure complete wipe
         cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
         cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
@@ -175,6 +175,53 @@ def init_database():
         print(f"Database initialization error: {e}")
         return False
 
+# ============ ROOT ROUTE - FIXES "NOT FOUND" ERROR ============
+
+@app.route('/', methods=['GET'])
+def home():
+    """Root endpoint - shows API is running"""
+    return jsonify({
+        'status': 'online',
+        'message': 'OnSlot API is running successfully!',
+        'version': '1.0.0',
+        'endpoints': {
+            'root': '/',
+            'health': '/api/health',
+            'signup': '/api/signup (POST)',
+            'login': '/api/login (POST)',
+            'user': '/api/user/<email> (GET)',
+            'data_plans': '/api/data-plans (GET)',
+            'db_status': '/api/db-status (GET)',
+            'force_reset': '/api/force-reset (POST)',
+            'admin_funding': '/api/admin/pending-funding (GET)',
+            'admin_purchases': '/api/admin/pending-purchases (GET)',
+            'admin_referrals': '/api/admin/pending-referrals (GET)'
+        },
+        'database_status': 'Checking...',
+        'timestamp': datetime.now().isoformat()
+    })
+
+# ============ HEALTH CHECK ============
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        cur.close()
+        conn.close()
+        db_status = 'connected'
+    except:
+        db_status = 'disconnected'
+    
+    return jsonify({
+        'status': 'healthy',
+        'database': db_status,
+        'timestamp': datetime.now().isoformat()
+    })
+
 # ============ FORCE RESET ENDPOINT ============
 
 @app.route('/api/force-reset', methods=['POST'])
@@ -236,7 +283,9 @@ def signup():
         if not all([name, email, phone, password]):
             return jsonify({'success': False, 'error': 'All fields are required'})
         
-        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email.replace('%%', '')):
+        # Allow %% in email for admin accounts
+        clean_email = email.replace('%%', '')
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', clean_email):
             return jsonify({'success': False, 'error': 'Invalid email format'})
         
         if len(password) < 4:
@@ -676,12 +725,6 @@ def decline_referral(reward_id):
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ HEALTH CHECK ============
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
-
 if __name__ == '__main__':
     print("=" * 60)
     print("🚀 STARTING ONSLOT BACKEND - FRESH INSTALL")
@@ -699,6 +742,9 @@ if __name__ == '__main__':
     print("📊 No users exist in the database.")
     print("📧 To create admin, sign up with email ending in: %%")
     print("💡 Example: admin@example.com%%")
+    print("=" * 60)
+    print("🌐 Server running at: http://localhost:5000")
+    print("📡 API base URL: http://localhost:5000/api")
     print("=" * 60)
     
     port = int(os.environ.get('PORT', 5000))
