@@ -7,6 +7,7 @@ import random
 import hashlib
 import re
 from datetime import datetime
+import uuid
 
 app = Flask(__name__)
 CORS(app)
@@ -28,37 +29,15 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
-def force_clear_all_users():
-    """FORCE DELETE ALL USERS - Guaranteed to work"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Drop all tables to ensure complete wipe
-        cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
-        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
-        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
-        cur.execute("DROP TABLE IF EXISTS users CASCADE")
-        cur.execute("DROP TABLE IF EXISTS data_plans CASCADE")
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("✅ All tables dropped! Database is completely empty.")
-        return True
-    except Exception as e:
-        print(f"Error dropping tables: {e}")
-        return False
-
 def init_database():
-    """Initialize fresh database tables"""
+    """Initialize database tables"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
         # Users table
         cur.execute("""
-            CREATE TABLE users (
+            CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 email VARCHAR(100) UNIQUE NOT NULL,
@@ -74,7 +53,7 @@ def init_database():
         
         # Data plans table
         cur.execute("""
-            CREATE TABLE data_plans (
+            CREATE TABLE IF NOT EXISTS data_plans (
                 id SERIAL PRIMARY KEY,
                 network VARCHAR(20) NOT NULL,
                 plan_size VARCHAR(20) NOT NULL,
@@ -87,7 +66,7 @@ def init_database():
         
         # Pending payments table
         cur.execute("""
-            CREATE TABLE pending_payments (
+            CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -103,7 +82,7 @@ def init_database():
         
         # Pending purchases table
         cur.execute("""
-            CREATE TABLE pending_purchases (
+            CREATE TABLE IF NOT EXISTS pending_purchases (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -120,7 +99,7 @@ def init_database():
         
         # Referral rewards table
         cur.execute("""
-            CREATE TABLE referral_rewards (
+            CREATE TABLE IF NOT EXISTS referral_rewards (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100) NOT NULL,
                 user_name VARCHAR(100) NOT NULL,
@@ -133,137 +112,49 @@ def init_database():
         """)
         
         # Insert default data plans
-        default_plans = [
-            ('mtn', '500MB', 'MTN 500MB Data', 200, '7 days'),
-            ('mtn', '1GB', 'MTN 1GB Data', 350, '7 days'),
-            ('mtn', '2GB', 'MTN 2GB Data', 800, '7 days'),
-            ('mtn', '3GB', 'MTN 3GB Data', 1200, '30 days'),
-            ('mtn', '5GB', 'MTN 5GB Data', 1900, '30 days'),
-            ('mtn', '10GB', 'MTN 10GB Data', 3500, '30 days'),
-            ('airtel', '300MB', 'Airtel 300MB Data', 200, '2 days'),
-            ('airtel', '600MB', 'Airtel 600MB Data', 300, '2 days'),
-            ('airtel', '1.5GB', 'Airtel 1.5GB Data', 350, '2 days'),
-            ('airtel', '2GB', 'Airtel 2GB Data', 400, '2 days'),
-            ('airtel', '6GB', 'Airtel 6GB Data', 2600, '7 days'),
-            ('airtel', '10GB', 'Airtel 10GB Data', 4000, '30 days'),
-            ('glo', '200MB', 'Glo 200MB Data', 99, '2 days'),
-            ('glo', '500MB', 'Glo 500MB Data', 200, '2 days'),
-            ('glo', '1GB', 'Glo 1GB Data', 350, '7 days'),
-            ('glo', '2GB', 'Glo 2GB Data', 700, '7 days'),
-            ('glo', '5GB', 'Glo 5GB Data', 1500, '7 days'),
-            ('glo', '10GB', 'Glo 10GB Data', 2800, '30 days'),
-            ('9mobile', '250MB', '9mobile 250MB Data', 100, '7 days'),
-            ('9mobile', '500MB', '9mobile 500MB Data', 200, '7 days'),
-            ('9mobile', '1GB', '9mobile 1GB Data', 450, '7 days'),
-            ('9mobile', '2GB', '9mobile 2GB Data', 800, '7 days'),
-            ('9mobile', '5.2GB', '9mobile 5.2GB Data', 2300, '30 days'),
-            ('9mobile', '11.4GB', '9mobile 11.4GB Data', 5000, '30 days'),
-        ]
-        
-        for plan in default_plans:
-            cur.execute("""
-                INSERT INTO data_plans (network, plan_size, plan_name, price, validity) 
-                VALUES (%s, %s, %s, %s, %s)
-            """, plan)
+        cur.execute("SELECT COUNT(*) FROM data_plans")
+        if cur.fetchone()[0] == 0:
+            default_plans = [
+                ('mtn', '500MB', 'MTN 500MB Data', 200, '7 days'),
+                ('mtn', '1GB', 'MTN 1GB Data', 350, '7 days'),
+                ('mtn', '2GB', 'MTN 2GB Data', 800, '7 days'),
+                ('mtn', '3GB', 'MTN 3GB Data', 1200, '30 days'),
+                ('mtn', '5GB', 'MTN 5GB Data', 1900, '30 days'),
+                ('mtn', '10GB', 'MTN 10GB Data', 3500, '30 days'),
+                ('airtel', '300MB', 'Airtel 300MB Data', 200, '2 days'),
+                ('airtel', '600MB', 'Airtel 600MB Data', 300, '2 days'),
+                ('airtel', '1.5GB', 'Airtel 1.5GB Data', 350, '2 days'),
+                ('airtel', '2GB', 'Airtel 2GB Data', 400, '2 days'),
+                ('airtel', '6GB', 'Airtel 6GB Data', 2600, '7 days'),
+                ('airtel', '10GB', 'Airtel 10GB Data', 4000, '30 days'),
+                ('glo', '200MB', 'Glo 200MB Data', 99, '2 days'),
+                ('glo', '500MB', 'Glo 500MB Data', 200, '2 days'),
+                ('glo', '1GB', 'Glo 1GB Data', 350, '7 days'),
+                ('glo', '2GB', 'Glo 2GB Data', 700, '7 days'),
+                ('glo', '5GB', 'Glo 5GB Data', 1500, '7 days'),
+                ('glo', '10GB', 'Glo 10GB Data', 2800, '30 days'),
+                ('9mobile', '250MB', '9mobile 250MB Data', 100, '7 days'),
+                ('9mobile', '500MB', '9mobile 500MB Data', 200, '7 days'),
+                ('9mobile', '1GB', '9mobile 1GB Data', 450, '7 days'),
+                ('9mobile', '2GB', '9mobile 2GB Data', 800, '7 days'),
+                ('9mobile', '5.2GB', '9mobile 5.2GB Data', 2300, '30 days'),
+                ('9mobile', '11.4GB', '9mobile 11.4GB Data', 5000, '30 days'),
+            ]
+            for plan in default_plans:
+                cur.execute("""
+                    INSERT INTO data_plans (network, plan_size, plan_name, price, validity) 
+                    VALUES (%s, %s, %s, %s, %s)
+                """, plan)
+            print("✅ Default data plans inserted")
         
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Fresh database tables created with no users!")
+        print("✅ Database initialized successfully!")
         return True
     except Exception as e:
         print(f"Database initialization error: {e}")
         return False
-
-# ============ ROOT ROUTE - FIXES "NOT FOUND" ERROR ============
-
-@app.route('/', methods=['GET'])
-def home():
-    """Root endpoint - shows API is running"""
-    return jsonify({
-        'status': 'online',
-        'message': 'OnSlot API is running successfully!',
-        'version': '1.0.0',
-        'endpoints': {
-            'root': '/',
-            'health': '/api/health',
-            'signup': '/api/signup (POST)',
-            'login': '/api/login (POST)',
-            'user': '/api/user/<email> (GET)',
-            'data_plans': '/api/data-plans (GET)',
-            'db_status': '/api/db-status (GET)',
-            'force_reset': '/api/force-reset (POST)',
-            'admin_funding': '/api/admin/pending-funding (GET)',
-            'admin_purchases': '/api/admin/pending-purchases (GET)',
-            'admin_referrals': '/api/admin/pending-referrals (GET)'
-        },
-        'database_status': 'Checking...',
-        'timestamp': datetime.now().isoformat()
-    })
-
-# ============ HEALTH CHECK ============
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.close()
-        conn.close()
-        db_status = 'connected'
-    except:
-        db_status = 'disconnected'
-    
-    return jsonify({
-        'status': 'healthy',
-        'database': db_status,
-        'timestamp': datetime.now().isoformat()
-    })
-
-# ============ FORCE RESET ENDPOINT ============
-
-@app.route('/api/force-reset', methods=['POST'])
-def force_reset():
-    """Forcefully delete everything and start fresh"""
-    try:
-        data = request.json
-        secret = data.get('secret', '')
-        
-        # Security check
-        if secret != 'RESET_NOW_2024':
-            return jsonify({'success': False, 'error': 'Invalid secret key'})
-        
-        # Force delete all tables
-        if force_clear_all_users():
-            # Recreate fresh tables
-            if init_database():
-                return jsonify({'success': True, 'message': 'Database completely reset! No users exist.'})
-            else:
-                return jsonify({'success': False, 'error': 'Failed to recreate tables'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to clear tables'})
-            
-    except Exception as e:
-        print(f"Force reset error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
-
-# ============ CHECK DATABASE STATUS ============
-
-@app.route('/api/db-status', methods=['GET'])
-def db_status():
-    """Check how many users are in database"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users")
-        user_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        return jsonify({'user_count': user_count, 'message': f'{user_count} users in database'})
-    except Exception as e:
-        return jsonify({'error': str(e), 'user_count': -1})
 
 # ============ USER AUTHENTICATION ============
 
@@ -277,15 +168,11 @@ def signup():
         password = data.get('password', '').strip()
         referral_code_input = data.get('referralCode', '').strip()
         
-        print(f"Signup attempt - Email: {email}")
-        
         # Validation
         if not all([name, email, phone, password]):
             return jsonify({'success': False, 'error': 'All fields are required'})
         
-        # Allow %% in email for admin accounts
-        clean_email = email.replace('%%', '')
-        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', clean_email):
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email.replace('%%', '')):
             return jsonify({'success': False, 'error': 'Invalid email format'})
         
         if len(password) < 4:
@@ -296,11 +183,9 @@ def signup():
         
         # Check if email already exists
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
-        existing = cur.fetchone()
-        if existing:
+        if cur.fetchone():
             cur.close()
             conn.close()
-            print(f"Email already exists: {email}")
             return jsonify({'success': False, 'error': 'Email already registered'})
         
         # Generate unique referral code
@@ -308,10 +193,10 @@ def signup():
         hashed_password = hash_password(password)
         
         cur.execute("""
-            INSERT INTO users (name, email, phone, password, referral_code, wallet_balance) 
-            VALUES (%s, %s, %s, %s, %s, %s) 
+            INSERT INTO users (name, email, phone, password, referral_code) 
+            VALUES (%s, %s, %s, %s, %s) 
             RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
-        """, (name, email, phone, hashed_password, referral_code, 0))
+        """, (name, email, phone, hashed_password, referral_code))
         
         user = cur.fetchone()
         
@@ -323,6 +208,24 @@ def signup():
                 WHERE referral_code = %s AND email != %s
             """, (referral_code_input, email))
             conn.commit()
+            
+            # Check if referrer reached 5 referrals
+            cur.execute("""
+                SELECT email, referral_count, referral_reward_claimed 
+                FROM users WHERE referral_code = %s
+            """, (referral_code_input,))
+            referrer = cur.fetchone()
+            
+            if referrer and referrer[1] >= 5 and not referrer[2]:
+                # Get referrer name
+                cur.execute("SELECT name FROM users WHERE referral_code = %s", (referral_code_input,))
+                referrer_name = cur.fetchone()
+                # Auto-create referral reward request
+                cur.execute("""
+                    INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (referrer[0], referrer_name[0] if referrer_name else '', '', '', 400))
+                conn.commit()
         
         user_dict = {
             'id': user[0],
@@ -337,7 +240,6 @@ def signup():
         cur.close()
         conn.close()
         
-        print(f"User created successfully: {email}")
         return jsonify({'success': True, 'user': user_dict, 'message': 'Account created successfully!'})
     
     except Exception as e:
@@ -351,8 +253,6 @@ def login():
         email = data.get('email', '').strip().lower()
         password = data.get('password', '').strip()
         
-        print(f"Login attempt - Email: {email}")
-        
         if not email or not password:
             return jsonify({'success': False, 'error': 'Email and password are required'})
         
@@ -364,14 +264,12 @@ def login():
         user = cur.fetchone()
         
         if not user:
-            print(f"User not found: {email}")
             cur.close()
             conn.close()
             return jsonify({'success': False, 'error': 'Invalid email or password'})
         
         # Verify password
         if user['password'] != hash_password(password):
-            print(f"Password mismatch for: {email}")
             cur.close()
             conn.close()
             return jsonify({'success': False, 'error': 'Invalid email or password'})
@@ -382,7 +280,6 @@ def login():
         cur.close()
         conn.close()
         
-        print(f"Login successful: {email}")
         return jsonify({'success': True, 'user': user})
     
     except Exception as e:
@@ -596,7 +493,7 @@ def approve_funding(payment_id):
         payment = cur.fetchone()
         
         if payment:
-            total_amount = payment[4] + payment[5]
+            total_amount = payment[4] + payment[5]  # amount + service_charge
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, payment[1]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -661,7 +558,7 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
-            total_amount = purchase[6] + purchase[7]
+            total_amount = purchase[6] + purchase[7]  # plan_price + service_charge
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, purchase[1]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
@@ -698,10 +595,10 @@ def approve_referral(reward_id):
         reward = cur.fetchone()
         
         if reward:
+            # Add reward amount to wallet (500MB worth = ₦400)
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                       (reward[6], reward[1]))
+                       (reward[6], reward[1]))  # amount
             cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
-            cur.execute("UPDATE users SET referral_reward_claimed = true WHERE email = %s", (reward[1],))
             conn.commit()
         
         cur.close()
@@ -724,50 +621,16 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-@app.route('/api/logout-all-users', methods=['POST'])
-def logout_all_users():
-    """Force logout all users by clearing all sessions"""
-    try:
-        # Delete all session data from database
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Option 1: Just delete sessions (keep users)
-        # If you have a sessions table, clear it
-        
-        # Option 2: Delete all users completely
-        cur.execute("DELETE FROM users")
-        cur.execute("ALTER SEQUENCE users_id_seq RESTART WITH 1")
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'success': True, 'message': 'All users have been logged out/deleted'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+
+# ============ HEALTH CHECK ============
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
 
 if __name__ == '__main__':
-    print("=" * 60)
-    print("🚀 STARTING ONSLOT BACKEND - FRESH INSTALL")
-    print("=" * 60)
-    
-    # FORCE DELETE EVERYTHING on startup
-    print("🗑️  Force deleting all existing tables and users...")
-    force_clear_all_users()
-    
-    print("📦 Creating fresh database tables...")
+    # Initialize database
     init_database()
-    
-    print("=" * 60)
-    print("✅ DATABASE IS COMPLETELY FRESH!")
-    print("📊 No users exist in the database.")
-    print("📧 To create admin, sign up with email ending in: %%")
-    print("💡 Example: admin@example.com%%")
-    print("=" * 60)
-    print("🌐 Server running at: http://localhost:5000")
-    print("📡 API base URL: http://localhost:5000/api")
-    print("=" * 60)
     
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
