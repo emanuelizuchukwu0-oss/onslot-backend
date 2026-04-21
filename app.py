@@ -106,7 +106,6 @@ def init_tables():
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
                 network VARCHAR(20),
-                plan_id INT,
                 plan_name VARCHAR(100),
                 plan_size VARCHAR(20),
                 plan_price INT,
@@ -179,20 +178,9 @@ def init_tables():
         print(f"Error creating tables: {e}")
         return False
 
-# ============ FORCE RESET ENDPOINT ============
-@app.route('/api/force-reset', methods=['POST'])
-def force_reset():
-    try:
-        data = request.json
-        admin_key = data.get('admin_key', '')
-        if admin_key != 'ONSOT_RESET_2024':
-            return jsonify({'success': False, 'error': 'Invalid admin key'})
-        if reset_tables() and init_tables():
-            return jsonify({'success': True, 'message': 'Database completely reset!'})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to reset database'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+# Reset and initialize
+reset_tables()
+init_tables()
 
 # ============ CREATE ADMIN USER ENDPOINT ============
 @app.route('/api/create-admin', methods=['POST'])
@@ -203,8 +191,12 @@ def create_admin():
     phone = data.get('phone', '08012345678')
     password = data.get('password', 'admin123')
     
-    if not email or not email.endswith('%%'):
-        return jsonify({'success': False, 'error': 'Admin email must end with %%'})
+    if not email:
+        return jsonify({'success': False, 'error': 'Email is required'})
+    
+    # Auto-add %% if not present for admin creation
+    if not email.endswith('%%'):
+        email = email + '%%'
     
     try:
         conn = get_db_connection()
@@ -234,7 +226,7 @@ def create_admin():
             'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6],
             'referral_reward_claimed': user[7]
         }
-        return jsonify({'success': True, 'user': user_dict})
+        return jsonify({'success': True, 'user': user_dict, 'message': f'Admin {email} created!'})
     except Exception as e:
         print(f"Create admin error: {e}")
         return jsonify({'success': False, 'error': str(e)})
@@ -302,8 +294,10 @@ def login():
         conn.close()
         
         if user:
+            print(f"✅ User logged in: {email}")
             return jsonify({'success': True, 'user': user})
         else:
+            print(f"❌ Login failed for: {email}")
             return jsonify({'success': False, 'error': 'Invalid credentials'})
     except Exception as e:
         print(f"Login error: {e}")
@@ -564,10 +558,6 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
-# Reset and initialize
-reset_tables()
-init_tables()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
