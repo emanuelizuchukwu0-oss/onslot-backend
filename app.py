@@ -558,6 +558,36 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+        @app.route('/api/debug-users', methods=['GET'])
+def debug_users():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id, name, email, password, wallet_balance FROM users")
+        users = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify({'users': users})
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@app.route('/api/fix-login', methods=['POST'])
+def fix_login():
+    """Fix login issues - reset user password"""
+    data = request.json
+    email = data.get('email')
+    new_password = data.get('password', 'admin123')
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET password = %s WHERE email = %s", (new_password, email))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True, 'message': f'Password reset for {email}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
