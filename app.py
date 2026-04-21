@@ -558,7 +558,7 @@ def decline_referral(reward_id):
     except Exception as e:
         print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-        @app.route('/api/debug-users', methods=['GET'])
+@app.route('/api/debug-users', methods=['GET'])
 def debug_users():
     try:
         conn = get_db_connection()
