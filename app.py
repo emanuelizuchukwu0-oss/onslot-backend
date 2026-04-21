@@ -7,10 +7,9 @@ import random
 import hashlib
 import re
 from datetime import datetime
-import uuid
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://onslot.onrender.com", "http://localhost:5000", "http://127.0.0.1:5500", "*"])
 
 # Database configuration
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -91,6 +90,7 @@ def init_database():
                 plan_size VARCHAR(20) NOT NULL,
                 plan_price INT NOT NULL,
                 service_charge INT DEFAULT 50,
+                validity VARCHAR(50),
                 phone_number VARCHAR(20) NOT NULL,
                 status VARCHAR(20) DEFAULT 'pending',
                 timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -156,6 +156,28 @@ def init_database():
         print(f"Database initialization error: {e}")
         return False
 
+# ============ ROOT ROUTE ============
+
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        'status': 'online',
+        'message': 'OnSlot API is running',
+        'endpoints': [
+            '/api/signup',
+            '/api/login',
+            '/api/user/<email>',
+            '/api/data-plans',
+            '/api/submit-funding',
+            '/api/submit-purchase',
+            '/api/submit-referral-reward',
+            '/api/admin/pending-funding',
+            '/api/admin/pending-purchases',
+            '/api/admin/pending-referrals',
+            '/api/health'
+        ]
+    })
+
 # ============ USER AUTHENTICATION ============
 
 @app.route('/api/signup', methods=['POST'])
@@ -217,10 +239,8 @@ def signup():
             referrer = cur.fetchone()
             
             if referrer and referrer[1] >= 5 and not referrer[2]:
-                # Get referrer name
                 cur.execute("SELECT name FROM users WHERE referral_code = %s", (referral_code_input,))
                 referrer_name = cur.fetchone()
-                # Auto-create referral reward request
                 cur.execute("""
                     INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
                     VALUES (%s, %s, %s, %s, %s)
@@ -259,7 +279,6 @@ def login():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Get user by email
         cur.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cur.fetchone()
         
@@ -268,13 +287,11 @@ def login():
             conn.close()
             return jsonify({'success': False, 'error': 'Invalid email or password'})
         
-        # Verify password
         if user['password'] != hash_password(password):
             cur.close()
             conn.close()
             return jsonify({'success': False, 'error': 'Invalid email or password'})
         
-        # Remove password from response
         del user['password']
         
         cur.close()
@@ -343,7 +360,6 @@ def submit_funding():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Check if transaction ref already exists
         cur.execute("SELECT id FROM pending_payments WHERE transaction_ref = %s", (transaction_ref,))
         if cur.fetchone():
             cur.close()
@@ -379,6 +395,7 @@ def submit_purchase():
         plan_size = data.get('planSize', '').strip()
         plan_price = data.get('planPrice', 0)
         service_charge = data.get('serviceCharge', 50)
+        validity = data.get('validity', '')
         phone_number = data.get('phoneNumber', '').strip()
         
         if not all([user_email, network, plan_size, phone_number]):
@@ -389,7 +406,6 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Check wallet balance
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (user_email,))
         result = cur.fetchone()
         
@@ -405,16 +421,14 @@ def submit_purchase():
             conn.close()
             return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
         
-        # Deduct from wallet
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, user_email))
         
-        # Create purchase request
         cur.execute("""
             INSERT INTO pending_purchases 
-            (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, phone_number) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, phone_number))
+            (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, validity, phone_number) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, validity, phone_number))
         
         conn.commit()
         cur.close()
@@ -441,7 +455,6 @@ def submit_referral_reward():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Check if already claimed
         cur.execute("SELECT referral_reward_claimed FROM users WHERE email = %s", (user_email,))
         result = cur.fetchone()
         
@@ -493,7 +506,7 @@ def approve_funding(payment_id):
         payment = cur.fetchone()
         
         if payment:
-            total_amount = payment[4] + payment[5]  # amount + service_charge
+            total_amount = payment[4] + payment[5]
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, payment[1]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -558,7 +571,7 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
-            total_amount = purchase[6] + purchase[7]  # plan_price + service_charge
+            total_amount = purchase[6] + purchase[7]
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, purchase[1]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
@@ -595,9 +608,8 @@ def approve_referral(reward_id):
         reward = cur.fetchone()
         
         if reward:
-            # Add reward amount to wallet (500MB worth = ₦400)
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                       (reward[6], reward[1]))  # amount
+                       (reward[6], reward[1]))
             cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
             conn.commit()
         
@@ -633,4 +645,6 @@ if __name__ == '__main__':
     init_database()
     
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    print(f"🚀 Server starting on port {port}...")
+    print(f"📍 API URL: http://localhost:{port}/api")
+    app.run(host='0.0.0.0', port=port, debug=True)
