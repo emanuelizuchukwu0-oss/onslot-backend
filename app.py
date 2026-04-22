@@ -379,6 +379,116 @@ def decline_funding(payment_id):
         print(f"Decline funding error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Add this after your existing routes
+
+@app.route('/api/user/wallet/<email>', methods=['GET'])
+def get_user_wallet(email):
+    """Get latest wallet balance for a user"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT wallet_balance, name, email FROM users WHERE email = %s", (email,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if user:
+            return jsonify({'success': True, 'wallet_balance': user['wallet_balance']})
+        else:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+    except Exception as e:
+        print(f"Get wallet error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/user/transactions/<email>', methods=['GET'])
+def get_user_transactions(email):
+    """Get user's transaction history"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get completed fundings
+        cur.execute("""
+            SELECT 'funding' as type, amount, total_amount, status, timestamp 
+            FROM pending_payments 
+            WHERE user_email = %s AND status = 'completed'
+            ORDER BY timestamp DESC LIMIT 10
+        """, (email,))
+        fundings = cur.fetchall()
+        
+        # Get purchases
+        cur.execute("""
+            SELECT 'purchase' as type, plan_size as item, total_amount as amount, status, timestamp 
+            FROM pending_purchases 
+            WHERE user_email = %s AND status = 'completed'
+            ORDER BY timestamp DESC LIMIT 10
+        """, (email,))
+        purchases = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        transactions = list(fundings) + list(purchases)
+        transactions.sort(key=lambda x: x['timestamp'], reverse=True)
+        
+        return jsonify({'success': True, 'transactions': transactions})
+    except Exception as e:
+        print(f"Get transactions error: {e}")
+        return jsonify({'success': False, 'transactions': []}), 500
+
+# Modify the approve_funding function to return new balance
+@app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
+def approve_funding(payment_id):
+    try:
+        print(f"✅ Approving funding ID: {payment_id}")
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Get payment details
+        cur.execute("SELECT user_email, amount FROM pending_payments WHERE id = %s", (payment_id,))
+        payment = cur.fetchone()
+        
+        if not payment:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Payment not found'})
+        
+        user_email = payment['user_email']
+        amount = payment['amount']
+        
+        print(f"Adding ₦{amount} to user {user_email}")
+        
+        # Add to user wallet and get new balance
+        cur.execute("""
+            UPDATE users 
+            SET wallet_balance = wallet_balance + %s 
+            WHERE email = %s 
+            RETURNING wallet_balance
+        """, (amount, user_email))
+        
+        result = cur.fetchone()
+        new_balance = result['wallet_balance'] if result else 0
+        
+        # Update payment status
+        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        print(f"✅ Funding approved successfully! New balance: ₦{new_balance}")
+        return jsonify({
+            'success': True, 
+            'new_balance': new_balance,
+            'amount_added': amount,
+            'user_email': user_email
+        })
+        
+    except Exception as e:
+        print(f"❌ Approve funding error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ============ DATA PURCHASE ============
 
 @app.route('/api/submit-purchase', methods=['POST'])
