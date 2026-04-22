@@ -266,13 +266,12 @@ def submit_funding():
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
-        amount = data.get('amount')  # Amount after fee deduction
+        amount = data.get('amount')
         service_charge = data.get('serviceCharge', 50)
         total_amount = data.get('totalAmount', amount)
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
-        # Validate required fields
         if not user_email:
             return jsonify({'success': False, 'error': 'User email required'})
         if not amount:
@@ -322,64 +321,7 @@ def get_pending_funding():
         print(f"Get pending funding error: {e}")
         return jsonify([])
 
-@app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
-def approve_funding(payment_id):
-    try:
-        print(f"✅ Approving funding ID: {payment_id}")
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Get payment details
-        cur.execute("SELECT user_email, amount FROM pending_payments WHERE id = %s", (payment_id,))
-        payment = cur.fetchone()
-        
-        if not payment:
-            cur.close()
-            conn.close()
-            return jsonify({'success': False, 'error': 'Payment not found'})
-        
-        user_email = payment[0]
-        amount = payment[1]
-        
-        print(f"Adding ₦{amount} to user {user_email}")
-        
-        # Add to user wallet
-        cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                   (amount, user_email))
-        
-        # Update payment status
-        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        print(f"✅ Funding approved successfully!")
-        return jsonify({'success': True})
-        
-    except Exception as e:
-        print(f"❌ Approve funding error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/admin/decline-funding/<int:payment_id>', methods=['POST'])
-def decline_funding(payment_id):
-    try:
-        print(f"❌ Declining funding ID: {payment_id}")
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
-        conn.commit()
-        cur.close()
-        conn.close()
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Decline funding error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# Add this after your existing routes
+# ============ NEW USER WALLET ENDPOINTS ============
 
 @app.route('/api/user/wallet/<email>', methods=['GET'])
 def get_user_wallet(email):
@@ -407,7 +349,6 @@ def get_user_transactions(email):
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        # Get completed fundings
         cur.execute("""
             SELECT 'funding' as type, amount, total_amount, status, timestamp 
             FROM pending_payments 
@@ -416,7 +357,6 @@ def get_user_transactions(email):
         """, (email,))
         fundings = cur.fetchall()
         
-        # Get purchases
         cur.execute("""
             SELECT 'purchase' as type, plan_size as item, total_amount as amount, status, timestamp 
             FROM pending_purchases 
@@ -436,7 +376,9 @@ def get_user_transactions(email):
         print(f"Get transactions error: {e}")
         return jsonify({'success': False, 'transactions': []}), 500
 
-# Modify the approve_funding function to return new balance
+# ============ ADMIN APPROVE FUNDING (UPDATED VERSION) ============
+# ONLY ONE version of this function - the updated one that returns new_balance
+
 @app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
 def approve_funding(payment_id):
     try:
@@ -489,6 +431,23 @@ def approve_funding(payment_id):
         print(f"❌ Approve funding error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/admin/decline-funding/<int:payment_id>', methods=['POST'])
+def decline_funding(payment_id):
+    try:
+        print(f"❌ Declining funding ID: {payment_id}")
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Decline funding error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ============ DATA PURCHASE ============
 
 @app.route('/api/submit-purchase', methods=['POST'])
@@ -500,7 +459,6 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Get current wallet balance
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
         result = cur.fetchone()
         
@@ -517,11 +475,9 @@ def submit_purchase():
             conn.close()
             return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
         
-        # Deduct from wallet
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, data.get('userEmail')))
         
-        # Insert purchase record
         cur.execute("""
             INSERT INTO pending_purchases (
                 user_email, user_name, user_phone, network, plan_size, 
@@ -610,7 +566,6 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
-            # Refund user
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (purchase[1], purchase[0]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
