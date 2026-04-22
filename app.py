@@ -34,12 +34,11 @@ def init_database():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table
+        # Users table - email removed, username added
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL,
-                email VARCHAR(100) UNIQUE NOT NULL,
+                username VARCHAR(100) UNIQUE NOT NULL,
                 phone VARCHAR(20) NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 referral_code VARCHAR(50) UNIQUE,
@@ -50,13 +49,12 @@ def init_database():
             )
         """)
         
-        # Pending payments table
+        # Pending payments table - email replaced with username
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100) NOT NULL,
-                user_name VARCHAR(100) NOT NULL,
-                user_phone VARCHAR(20),
+                username VARCHAR(100) NOT NULL,
+                phone VARCHAR(20),
                 amount INT NOT NULL,
                 service_charge INT DEFAULT 50,
                 transaction_ref VARCHAR(100) UNIQUE,
@@ -66,13 +64,12 @@ def init_database():
             )
         """)
         
-        # Pending purchases table
+        # Pending purchases table - email replaced with username
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_purchases (
                 id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100) NOT NULL,
-                user_name VARCHAR(100) NOT NULL,
-                user_phone VARCHAR(20),
+                username VARCHAR(100) NOT NULL,
+                phone VARCHAR(20),
                 network VARCHAR(20) NOT NULL,
                 plan_size VARCHAR(20) NOT NULL,
                 plan_price INT NOT NULL,
@@ -84,12 +81,11 @@ def init_database():
             )
         """)
         
-        # Referral rewards table
+        # Referral rewards table - email replaced with username
         cur.execute("""
             CREATE TABLE IF NOT EXISTS referral_rewards (
                 id SERIAL PRIMARY KEY,
-                user_email VARCHAR(100) NOT NULL,
-                user_name VARCHAR(100) NOT NULL,
+                username VARCHAR(100) NOT NULL,
                 phone VARCHAR(20) NOT NULL,
                 network VARCHAR(20) NOT NULL,
                 amount INT DEFAULT 400,
@@ -120,7 +116,7 @@ def home():
         'endpoints': [
             '/api/signup',
             '/api/login',
-            '/api/user/<email>',
+            '/api/user/<username>',
             '/api/submit-funding',
             '/api/submit-purchase',
             '/api/submit-referral-reward',
@@ -140,36 +136,39 @@ def health_check():
 def signup():
     try:
         data = request.json
-        name = data.get('name', '').strip()
-        email = data.get('email', '').strip().lower()
+        username = data.get('username', '').strip()
         phone = data.get('phone', '').strip()
         password = data.get('password', '').strip()
         referral_code_input = data.get('referralCode', '').strip()
         
-        if not all([name, email, phone, password]):
+        if not all([username, phone, password]):
             return jsonify({'success': False, 'error': 'All fields are required'})
         
         if len(password) < 4:
             return jsonify({'success': False, 'error': 'Password must be at least 4 characters'})
         
+        if len(username) < 3:
+            return jsonify({'success': False, 'error': 'Username must be at least 3 characters'})
+        
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        # Check if username already exists
+        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
         if cur.fetchone():
             cur.close()
             conn.close()
-            return jsonify({'success': False, 'error': 'Email already registered'})
+            return jsonify({'success': False, 'error': 'Username already taken'})
         
         # Generate unique referral code
-        referral_code = name[:3].upper() + str(random.randint(1000, 9999))
+        referral_code = username[:3].upper() + str(random.randint(1000, 9999))
         hashed_password = hash_password(password)
         
         cur.execute("""
-            INSERT INTO users (name, email, phone, password, referral_code) 
-            VALUES (%s, %s, %s, %s, %s) 
-            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
-        """, (name, email, phone, hashed_password, referral_code))
+            INSERT INTO users (username, phone, password, referral_code) 
+            VALUES (%s, %s, %s, %s) 
+            RETURNING id, username, phone, referral_code, referral_count, wallet_balance
+        """, (username, phone, hashed_password, referral_code))
         
         user = cur.fetchone()
         
@@ -178,34 +177,31 @@ def signup():
             cur.execute("""
                 UPDATE users 
                 SET referral_count = referral_count + 1 
-                WHERE referral_code = %s AND email != %s
-            """, (referral_code_input, email))
+                WHERE referral_code = %s AND username != %s
+            """, (referral_code_input, username))
             conn.commit()
             
             # Check if referrer reached 5 referrals
             cur.execute("""
-                SELECT email, referral_count, referral_reward_claimed 
+                SELECT username, referral_count, referral_reward_claimed 
                 FROM users WHERE referral_code = %s
             """, (referral_code_input,))
             referrer = cur.fetchone()
             
             if referrer and referrer[1] >= 5 and not referrer[2]:
-                cur.execute("SELECT name FROM users WHERE referral_code = %s", (referral_code_input,))
-                referrer_name = cur.fetchone()
                 cur.execute("""
-                    INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (referrer[0], referrer_name[0] if referrer_name else '', '', '', 400))
+                    INSERT INTO referral_rewards (username, phone, network, amount) 
+                    VALUES (%s, %s, %s, %s)
+                """, (referrer[0], '', '', 400))
                 conn.commit()
         
         user_dict = {
             'id': user[0],
-            'name': user[1],
-            'email': user[2],
-            'phone': user[3],
-            'referral_code': user[4],
-            'referral_count': user[5],
-            'wallet_balance': user[6],
+            'username': user[1],
+            'phone': user[2],
+            'referral_code': user[3],
+            'referral_count': user[4],
+            'wallet_balance': user[5],
             'referral_reward_claimed': False
         }
         
@@ -222,27 +218,27 @@ def signup():
 def login():
     try:
         data = request.json
-        email = data.get('email', '').strip().lower()
+        username = data.get('username', '').strip()
         password = data.get('password', '').strip()
         
-        if not email or not password:
-            return jsonify({'success': False, 'error': 'Email and password are required'})
+        if not username or not password:
+            return jsonify({'success': False, 'error': 'Username and password are required'})
         
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
-        cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
         user = cur.fetchone()
         
         if not user:
             cur.close()
             conn.close()
-            return jsonify({'success': False, 'error': 'Invalid email or password'})
+            return jsonify({'success': False, 'error': 'Invalid username or password'})
         
         if user['password'] != hash_password(password):
             cur.close()
             conn.close()
-            return jsonify({'success': False, 'error': 'Invalid email or password'})
+            return jsonify({'success': False, 'error': 'Invalid username or password'})
         
         del user['password']
         
@@ -255,16 +251,16 @@ def login():
         print(f"Login error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/user/<email>', methods=['GET'])
-def get_user(email):
+@app.route('/api/user/<username>', methods=['GET'])
+def get_user(username):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("""
-            SELECT id, name, email, phone, referral_code, referral_count, 
+            SELECT id, username, phone, referral_code, referral_count, 
                    wallet_balance, referral_reward_claimed, created_at
-            FROM users WHERE email = %s
-        """, (email,))
+            FROM users WHERE username = %s
+        """, (username,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -278,15 +274,14 @@ def get_user(email):
 def submit_funding():
     try:
         data = request.json
-        user_email = data.get('userEmail', '').strip().lower()
-        user_name = data.get('userName', '').strip()
-        user_phone = data.get('userPhone', '').strip()
+        username = data.get('username', '').strip()
+        phone = data.get('phone', '').strip()
         amount = data.get('amount', 0)
         service_charge = data.get('serviceCharge', 50)
         transaction_ref = data.get('transactionRef', '').strip()
         payment_method = data.get('paymentMethod', 'bank_transfer')
         
-        if not all([user_email, user_name, transaction_ref]):
+        if not all([username, transaction_ref]):
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
         if amount < 400:
@@ -303,10 +298,10 @@ def submit_funding():
         
         cur.execute("""
             INSERT INTO pending_payments 
-            (user_email, user_name, user_phone, amount, service_charge, transaction_ref, payment_method) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            (username, phone, amount, service_charge, transaction_ref, payment_method) 
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, user_phone, amount, service_charge, transaction_ref, payment_method))
+        """, (username, phone, amount, service_charge, transaction_ref, payment_method))
         
         conn.commit()
         cur.close()
@@ -323,9 +318,8 @@ def submit_funding():
 def submit_purchase():
     try:
         data = request.json
-        user_email = data.get('userEmail', '').strip().lower()
-        user_name = data.get('userName', '').strip()
-        user_phone = data.get('userPhone', '').strip()
+        username = data.get('username', '').strip()
+        phone = data.get('phone', '').strip()
         network = data.get('network', '').strip()
         plan_size = data.get('planSize', '').strip()
         plan_price = data.get('planPrice', 0)
@@ -333,7 +327,7 @@ def submit_purchase():
         validity = data.get('validity', '')
         phone_number = data.get('phoneNumber', '').strip()
         
-        if not all([user_email, network, plan_size, phone_number]):
+        if not all([username, network, plan_size, phone_number]):
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
         total_amount = plan_price + service_charge
@@ -341,7 +335,7 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (user_email,))
+        cur.execute("SELECT wallet_balance FROM users WHERE username = %s", (username,))
         result = cur.fetchone()
         
         if not result:
@@ -356,15 +350,15 @@ def submit_purchase():
             conn.close()
             return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
         
-        cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
-                   (total_amount, user_email))
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE username = %s", 
+                   (total_amount, username))
         
         cur.execute("""
             INSERT INTO pending_purchases 
-            (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, validity, phone_number) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (username, phone, network, plan_size, plan_price, service_charge, validity, phone_number) 
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, user_phone, network, plan_size, plan_price, service_charge, validity, phone_number))
+        """, (username, phone, network, plan_size, plan_price, service_charge, validity, phone_number))
         
         conn.commit()
         cur.close()
@@ -381,19 +375,18 @@ def submit_purchase():
 def submit_referral_reward():
     try:
         data = request.json
-        user_email = data.get('userEmail', '').strip().lower()
-        user_name = data.get('userName', '').strip()
+        username = data.get('username', '').strip()
         phone = data.get('phone', '').strip()
         network = data.get('network', '').strip()
         amount = data.get('amount', 400)
         
-        if not all([user_email, phone, network]):
+        if not all([username, phone, network]):
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT referral_reward_claimed FROM users WHERE email = %s", (user_email,))
+        cur.execute("SELECT referral_reward_claimed FROM users WHERE username = %s", (username,))
         result = cur.fetchone()
         
         if result and result[0]:
@@ -402,12 +395,12 @@ def submit_referral_reward():
             return jsonify({'success': False, 'error': 'Reward already claimed'})
         
         cur.execute("""
-            INSERT INTO referral_rewards (user_email, user_name, phone, network, amount) 
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO referral_rewards (username, phone, network, amount) 
+            VALUES (%s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, phone, network, amount))
+        """, (username, phone, network, amount))
         
-        cur.execute("UPDATE users SET referral_reward_claimed = true WHERE email = %s", (user_email,))
+        cur.execute("UPDATE users SET referral_reward_claimed = true WHERE username = %s", (username,))
         
         conn.commit()
         cur.close()
@@ -444,8 +437,8 @@ def approve_funding(payment_id):
         payment = cur.fetchone()
         
         if payment:
-            total_amount = payment[4] + payment[5]
-            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+            total_amount = payment[3] + payment[4]  # amount + service_charge
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE username = %s", 
                        (total_amount, payment[1]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
             conn.commit()
@@ -509,8 +502,8 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
-            total_amount = purchase[6] + purchase[7]
-            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+            total_amount = purchase[5] + purchase[6]  # plan_price + service_charge
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE username = %s", 
                        (total_amount, purchase[1]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
             conn.commit()
@@ -546,8 +539,8 @@ def approve_referral(reward_id):
         reward = cur.fetchone()
         
         if reward:
-            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                       (reward[5], reward[1]))
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE username = %s", 
+                       (reward[4], reward[1]))  # amount, username
             cur.execute("UPDATE referral_rewards SET status = 'completed' WHERE id = %s", (reward_id,))
             conn.commit()
         
