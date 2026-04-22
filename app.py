@@ -258,6 +258,34 @@ def login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({'success': False, 'error': str(e)})
+    
+@app.route('/api/debug-login', methods=['POST'])
+def debug_login():
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cur.execute("SELECT username, password FROM users WHERE username = %s", (username,))
+        user = cur.fetchone()
+        
+        cur.close()
+        conn.close()
+        
+        if not user:
+            return jsonify({'found': False, 'error': 'User not found'})
+        
+        return jsonify({
+            'found': True,
+            'stored_hash': user['password'],
+            'computed_hash': hash_password(password),
+            'match': user['password'] == hash_password(password)
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 @app.route('/api/user/<username>', methods=['GET'])
 def get_user(username):
