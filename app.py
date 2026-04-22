@@ -256,43 +256,61 @@ def submit_funding():
         data = request.json
         print(f"💰 Funding request received: {data}")
         
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        # Get data from request with proper defaults
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
-        amount_to_add = data.get('amount')  # This is already after fee deduction
+        amount_to_add = data.get('amount')  # Amount after fee deduction
+        amount_sent = data.get('amountSent', amount_to_add + 50)  # Amount user actually sent
         service_charge = data.get('serviceCharge', 50)
         total_amount = data.get('totalAmount', amount_to_add)
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
-        # Calculate how much user actually sent (amount_to_add + fee)
-        amount_sent = amount_to_add + service_charge
+        print(f"Processing: User {user_email} sends ₦{amount_sent}, fee ₦{service_charge}, gets ₦{amount_to_add}")
         
-        if not user_email or not amount_to_add or not transaction_ref:
-            return jsonify({'success': False, 'error': 'Missing required fields'})
+        # Validate required fields
+        if not user_email:
+            return jsonify({'success': False, 'error': 'User email required'})
+        if not user_name:
+            return jsonify({'success': False, 'error': 'User name required'})
+        if amount_to_add is None or amount_to_add <= 0:
+            return jsonify({'success': False, 'error': 'Valid amount required'})
+        if not transaction_ref:
+            return jsonify({'success': False, 'error': 'Transaction reference required'})
+        if not payment_method:
+            return jsonify({'success': False, 'error': 'Payment method required'})
         
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Insert into pending_payments - using the correct column names
         cur.execute("""
             INSERT INTO pending_payments (
-                user_email, user_name, user_phone, amount, amount_sent,
+                user_email, user_name, user_phone, amount, 
                 service_charge, total_amount, transaction_ref, payment_method
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, user_phone, amount_to_add, amount_sent, 
+        """, (user_email, user_name, user_phone, amount_to_add, 
               service_charge, total_amount, transaction_ref, payment_method))
         
         payment_id = cur.fetchone()[0]
         conn.commit()
+        
+        print(f"✅ Funding request inserted with ID: {payment_id}")
+        
         cur.close()
         conn.close()
         
-        print(f"✅ Funding request created with ID: {payment_id} (User sends ₦{amount_sent}, gets ₦{amount_to_add})")
         return jsonify({'success': True, 'payment_id': payment_id})
         
     except Exception as e:
         print(f"❌ Submit funding error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/pending-funding', methods=['GET'])
