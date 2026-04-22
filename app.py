@@ -24,15 +24,24 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
-# Create tables on startup
-def init_tables():
+# Drop and recreate tables with correct schema
+def reset_and_create_tables():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Users table with wallet balance
+        # Drop existing tables in correct order (due to foreign key dependencies)
+        cur.execute("DROP TABLE IF EXISTS pending_referrals CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE")
+        
+        conn.commit()
+        print("✅ Old tables dropped")
+        
+        # Create users table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE users (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100),
                 email VARCHAR(100) UNIQUE,
@@ -46,9 +55,9 @@ def init_tables():
             )
         """)
         
-        # Pending payments (wallet funding)
+        # Create pending_payments table (wallet funding)
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_payments (
+            CREATE TABLE pending_payments (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
@@ -63,9 +72,9 @@ def init_tables():
             )
         """)
         
-        # Pending data purchases
+        # Create pending_purchases table with ALL required columns
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_purchases (
+            CREATE TABLE pending_purchases (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
@@ -83,9 +92,9 @@ def init_tables():
             )
         """)
         
-        # Pending referral rewards
+        # Create pending_referrals table
         cur.execute("""
-            CREATE TABLE IF NOT EXISTS pending_referrals (
+            CREATE TABLE pending_referrals (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
@@ -98,14 +107,29 @@ def init_tables():
         """)
         
         conn.commit()
+        print("✅ All tables created successfully with correct schema!")
+        
+        # Insert a test user (optional)
+        cur.execute("SELECT COUNT(*) FROM users")
+        user_count = cur.fetchone()[0]
+        if user_count == 0:
+            test_referral_code = "TEST" + str(random.randint(1000, 9999))
+            cur.execute("""
+                INSERT INTO users (name, email, phone, password, referral_code, wallet_balance)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, ("Test User", "test@test.com", "08012345678", "123456", test_referral_code, 1000))
+            conn.commit()
+            print("✅ Test user created (email: test@test.com, password: 123456)")
+        
         cur.close()
         conn.close()
-        print("✅ Tables created successfully!")
+        
     except Exception as e:
         print(f"Error creating tables: {e}")
+        raise e
 
 # Initialize tables
-init_tables()
+reset_and_create_tables()
 
 # Routes
 @app.route('/', methods=['GET'])
@@ -131,14 +155,17 @@ def signup():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
         
+        # Check if user exists
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cur.fetchone():
             cur.close()
             conn.close()
             return jsonify({'success': False, 'error': 'Email already registered'})
         
+        # Generate referral code
         referral_code = name[:3].upper() + str(random.randint(1000, 9999))
         
+        # Insert user
         cur.execute("""
             INSERT INTO users (name, email, phone, password, referral_code) 
             VALUES (%s, %s, %s, %s, %s) 
@@ -147,6 +174,7 @@ def signup():
         
         user = cur.fetchone()
         
+        # Handle referral
         if referral_code_input:
             cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (referral_code_input,))
         
@@ -306,7 +334,7 @@ def submit_purchase():
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, data.get('userEmail')))
         
-        # Insert purchase record
+        # Insert purchase record with all columns
         cur.execute("""
             INSERT INTO pending_purchases (
                 user_email, user_name, user_phone, network, plan_size, 
