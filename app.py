@@ -32,6 +32,41 @@ def get_db_connection():
         print(f"Database connection error: {e}")
         raise e
 
+# Add missing column to existing table
+def add_missing_columns():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Add account_name column if it doesn't exist
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='pending_payments' AND column_name='account_name') THEN
+                    ALTER TABLE pending_payments ADD COLUMN account_name VARCHAR(100);
+                END IF;
+            END $$;
+        """)
+        
+        # Add amount_sent column if it doesn't exist
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='pending_payments' AND column_name='amount_sent') THEN
+                    ALTER TABLE pending_payments ADD COLUMN amount_sent INT DEFAULT 0;
+                END IF;
+            END $$;
+        """)
+        
+        conn.commit()
+        print("✅ Missing columns added successfully!")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding columns: {e}")
+
 # Create tables
 def create_tables():
     try:
@@ -130,6 +165,7 @@ def create_tables():
 
 # Initialize tables
 create_tables()
+add_missing_columns()  # Add missing columns to existing table
 
 # ============ ROUTES ============
 
@@ -264,8 +300,8 @@ def submit_funding():
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
-        account_name = data.get('accountName')  # NEW: Get account name
-        amount_to_add = data.get('amount')  # Amount after fee deduction
+        account_name = data.get('accountName')
+        amount_to_add = data.get('amount')
         amount_sent = data.get('amountSent', amount_to_add + 50 if amount_to_add else 0)
         service_charge = data.get('serviceCharge', 50)
         total_amount = data.get('totalAmount', amount_to_add)
@@ -285,13 +321,11 @@ def submit_funding():
             return jsonify({'success': False, 'error': 'Valid amount required'})
         if not transaction_ref:
             return jsonify({'success': False, 'error': 'Transaction reference required'})
-        if not payment_method:
-            return jsonify({'success': False, 'error': 'Payment method required'})
         
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Insert into pending_payments with account_name
+        # Insert into pending_payments
         cur.execute("""
             INSERT INTO pending_payments (
                 user_email, user_name, user_phone, account_name, amount, 
@@ -349,7 +383,7 @@ def approve_funding(payment_id):
             return jsonify({'success': False, 'error': 'Payment not found'})
         
         user_email = payment[0]
-        amount_to_add = payment[1]  # This is the amount after fee deduction
+        amount_to_add = payment[1]
         
         print(f"Adding ₦{amount_to_add} to user {user_email}")
         
