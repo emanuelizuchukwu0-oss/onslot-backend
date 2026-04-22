@@ -274,10 +274,11 @@ def approve_funding(payment_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT user_email, total_amount FROM pending_payments WHERE id = %s", (payment_id,))
+        cur.execute("SELECT user_email, amount FROM pending_payments WHERE id = %s", (payment_id,))
         payment = cur.fetchone()
         
         if payment:
+            # amount is already after fee deduction
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (payment[1], payment[0]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -289,7 +290,6 @@ def approve_funding(payment_id):
     except Exception as e:
         print(f"Approve funding error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-
 @app.route('/api/admin/decline-funding/<int:payment_id>', methods=['POST'])
 def decline_funding(payment_id):
     try:
