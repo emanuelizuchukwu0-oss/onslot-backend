@@ -150,8 +150,6 @@ def health_check():
 def signup():
     try:
         data = request.json
-        print(f"Signup request: {data}")
-        
         name = data.get('name')
         email = data.get('email')
         phone = data.get('phone')
@@ -200,8 +198,6 @@ def signup():
 def login():
     try:
         data = request.json
-        print(f"Login request: {data.get('email')}")
-        
         email = data.get('email')
         password = data.get('password')
         
@@ -259,10 +255,6 @@ def submit_funding():
         data = request.json
         print(f"💰 Funding request received: {data}")
         
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'})
-        
-        # Get data from request
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
@@ -272,14 +264,8 @@ def submit_funding():
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
-        if not user_email:
-            return jsonify({'success': False, 'error': 'User email required'})
-        if not amount:
-            return jsonify({'success': False, 'error': 'Amount required'})
-        if not transaction_ref:
-            return jsonify({'success': False, 'error': 'Transaction reference required'})
-        
-        print(f"Inserting funding: user={user_email}, amount={amount}, ref={transaction_ref}")
+        if not user_email or not amount or not transaction_ref:
+            return jsonify({'success': False, 'error': 'Missing required fields'})
         
         conn = get_db_connection()
         cur = conn.cursor()
@@ -302,8 +288,6 @@ def submit_funding():
         
     except Exception as e:
         print(f"❌ Submit funding error: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/pending-funding', methods=['GET'])
@@ -315,69 +299,10 @@ def get_pending_funding():
         payments = cur.fetchall()
         cur.close()
         conn.close()
-        print(f"📋 Pending funding requests: {len(payments)}")
         return jsonify(payments)
     except Exception as e:
         print(f"Get pending funding error: {e}")
         return jsonify([])
-
-# ============ NEW USER WALLET ENDPOINTS ============
-
-@app.route('/api/user/wallet/<email>', methods=['GET'])
-def get_user_wallet(email):
-    """Get latest wallet balance for a user"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT wallet_balance, name, email FROM users WHERE email = %s", (email,))
-        user = cur.fetchone()
-        cur.close()
-        conn.close()
-        
-        if user:
-            return jsonify({'success': True, 'wallet_balance': user['wallet_balance']})
-        else:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-    except Exception as e:
-        print(f"Get wallet error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/user/transactions/<email>', methods=['GET'])
-def get_user_transactions(email):
-    """Get user's transaction history"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        
-        cur.execute("""
-            SELECT 'funding' as type, amount, total_amount, status, timestamp 
-            FROM pending_payments 
-            WHERE user_email = %s AND status = 'completed'
-            ORDER BY timestamp DESC LIMIT 10
-        """, (email,))
-        fundings = cur.fetchall()
-        
-        cur.execute("""
-            SELECT 'purchase' as type, plan_size as item, total_amount as amount, status, timestamp 
-            FROM pending_purchases 
-            WHERE user_email = %s AND status = 'completed'
-            ORDER BY timestamp DESC LIMIT 10
-        """, (email,))
-        purchases = cur.fetchall()
-        
-        cur.close()
-        conn.close()
-        
-        transactions = list(fundings) + list(purchases)
-        transactions.sort(key=lambda x: x['timestamp'], reverse=True)
-        
-        return jsonify({'success': True, 'transactions': transactions})
-    except Exception as e:
-        print(f"Get transactions error: {e}")
-        return jsonify({'success': False, 'transactions': []}), 500
-
-# ============ ADMIN APPROVE FUNDING (UPDATED VERSION) ============
-# ONLY ONE version of this function - the updated one that returns new_balance
 
 @app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
 def approve_funding(payment_id):
@@ -385,7 +310,7 @@ def approve_funding(payment_id):
         print(f"✅ Approving funding ID: {payment_id}")
         
         conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur = conn.cursor()
         
         # Get payment details
         cur.execute("SELECT user_email, amount FROM pending_payments WHERE id = %s", (payment_id,))
@@ -396,21 +321,14 @@ def approve_funding(payment_id):
             conn.close()
             return jsonify({'success': False, 'error': 'Payment not found'})
         
-        user_email = payment['user_email']
-        amount = payment['amount']
+        user_email = payment[0]
+        amount = payment[1]
         
         print(f"Adding ₦{amount} to user {user_email}")
         
-        # Add to user wallet and get new balance
-        cur.execute("""
-            UPDATE users 
-            SET wallet_balance = wallet_balance + %s 
-            WHERE email = %s 
-            RETURNING wallet_balance
-        """, (amount, user_email))
-        
-        result = cur.fetchone()
-        new_balance = result['wallet_balance'] if result else 0
+        # ADD money to user's wallet (this is where money is added)
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+                   (amount, user_email))
         
         # Update payment status
         cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -419,13 +337,8 @@ def approve_funding(payment_id):
         cur.close()
         conn.close()
         
-        print(f"✅ Funding approved successfully! New balance: ₦{new_balance}")
-        return jsonify({
-            'success': True, 
-            'new_balance': new_balance,
-            'amount_added': amount,
-            'user_email': user_email
-        })
+        print(f"✅ Funding approved! ₦{amount} added to {user_email}")
+        return jsonify({'success': True})
         
     except Exception as e:
         print(f"❌ Approve funding error: {e}")
@@ -438,12 +351,18 @@ def decline_funding(payment_id):
         
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        # IMPORTANT: Just mark as declined - NO money is deducted because none was added
+        # The money was never added to user's wallet, so nothing to refund
         cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
         conn.commit()
+        
         cur.close()
         conn.close()
         
+        print(f"✅ Funding request {payment_id} marked as declined (no money action needed)")
         return jsonify({'success': True})
+        
     except Exception as e:
         print(f"Decline funding error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -459,6 +378,7 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Get current wallet balance
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
         result = cur.fetchone()
         
@@ -475,9 +395,11 @@ def submit_purchase():
             conn.close()
             return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
         
+        # Deduct from wallet immediately
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, data.get('userEmail')))
         
+        # Insert purchase record
         cur.execute("""
             INSERT INTO pending_purchases (
                 user_email, user_name, user_phone, network, plan_size, 
@@ -562,14 +484,17 @@ def decline_purchase(purchase_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Get purchase details to refund
         cur.execute("SELECT user_email, total_amount FROM pending_purchases WHERE id = %s", (purchase_id,))
         purchase = cur.fetchone()
         
         if purchase:
+            # REFUND the user since money was deducted when they submitted
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (purchase[1], purchase[0]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
             conn.commit()
+            print(f"✅ Refunded ₦{purchase[1]} to {purchase[0]}")
         
         cur.close()
         conn.close()
@@ -584,8 +509,6 @@ def decline_purchase(purchase_id):
 def submit_referral_reward():
     try:
         data = request.json
-        print(f"🎁 Referral reward request: {data}")
-        
         conn = get_db_connection()
         cur = conn.cursor()
         
@@ -628,8 +551,6 @@ def get_pending_referrals():
 @app.route('/api/admin/approve-referral/<int:referral_id>', methods=['POST'])
 def approve_referral(referral_id):
     try:
-        print(f"✅ Approving referral ID: {referral_id}")
-        
         conn = get_db_connection()
         cur = conn.cursor()
         
@@ -651,8 +572,6 @@ def approve_referral(referral_id):
 @app.route('/api/admin/decline-referral/<int:referral_id>', methods=['POST'])
 def decline_referral(referral_id):
     try:
-        print(f"❌ Declining referral ID: {referral_id}")
-        
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("UPDATE pending_referrals SET status = 'declined' WHERE id = %s", (referral_id,))
@@ -672,5 +591,4 @@ def handle_options(path):
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 Starting server on port {port}")
-    print(f"📍 Health check: http://localhost:{port}/api/health")
     app.run(host='0.0.0.0', port=port, debug=False)
