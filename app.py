@@ -54,13 +54,14 @@ def create_tables():
             )
         """)
         
-        # Create pending_payments table (wallet funding)
+        # Create pending_payments table with account_name column
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
                 user_email VARCHAR(100),
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
+                account_name VARCHAR(100),
                 amount INT,
                 amount_sent INT,
                 service_charge INT DEFAULT 50,
@@ -259,24 +260,27 @@ def submit_funding():
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'})
         
-        # Get data from request with proper defaults
+        # Get data from request
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
+        account_name = data.get('accountName')  # NEW: Get account name
         amount_to_add = data.get('amount')  # Amount after fee deduction
-        amount_sent = data.get('amountSent', amount_to_add + 50)  # Amount user actually sent
+        amount_sent = data.get('amountSent', amount_to_add + 50 if amount_to_add else 0)
         service_charge = data.get('serviceCharge', 50)
         total_amount = data.get('totalAmount', amount_to_add)
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
-        print(f"Processing: User {user_email} sends ₦{amount_sent}, fee ₦{service_charge}, gets ₦{amount_to_add}")
+        print(f"Processing: {account_name} sends ₦{amount_sent}, fee ₦{service_charge}, gets ₦{amount_to_add}")
         
         # Validate required fields
         if not user_email:
             return jsonify({'success': False, 'error': 'User email required'})
         if not user_name:
             return jsonify({'success': False, 'error': 'User name required'})
+        if not account_name:
+            return jsonify({'success': False, 'error': 'Account name required'})
         if amount_to_add is None or amount_to_add <= 0:
             return jsonify({'success': False, 'error': 'Valid amount required'})
         if not transaction_ref:
@@ -287,15 +291,15 @@ def submit_funding():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # Insert into pending_payments - using the correct column names
+        # Insert into pending_payments with account_name
         cur.execute("""
             INSERT INTO pending_payments (
-                user_email, user_name, user_phone, amount, 
-                service_charge, total_amount, transaction_ref, payment_method
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                user_email, user_name, user_phone, account_name, amount, 
+                amount_sent, service_charge, total_amount, transaction_ref, payment_method
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, user_phone, amount_to_add, 
-              service_charge, total_amount, transaction_ref, payment_method))
+        """, (user_email, user_name, user_phone, account_name, amount_to_add, 
+              amount_sent, service_charge, total_amount, transaction_ref, payment_method))
         
         payment_id = cur.fetchone()[0]
         conn.commit()
@@ -375,15 +379,14 @@ def decline_funding(payment_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        # IMPORTANT: Just mark as declined - NO money is deducted because none was added
-        # The money was never added to user's wallet, so nothing to remove
+        # Just mark as declined - NO money action needed
         cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
         conn.commit()
         
         cur.close()
         conn.close()
         
-        print(f"✅ Funding request {payment_id} marked as declined (no money action needed)")
+        print(f"✅ Funding request {payment_id} marked as declined")
         return jsonify({'success': True})
         
     except Exception as e:
@@ -413,7 +416,7 @@ def submit_purchase():
         balance = result[0]
         plan_price = data.get('planPrice')
         service_charge = data.get('serviceCharge', 50)
-        total_amount = plan_price + service_charge  # Calculate total with fee
+        total_amount = plan_price + service_charge
         
         if balance < total_amount:
             cur.close()
@@ -424,7 +427,7 @@ def submit_purchase():
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, data.get('userEmail')))
         
-        # Insert purchase record with all details
+        # Insert purchase record
         cur.execute("""
             INSERT INTO pending_purchases (
                 user_email, user_name, user_phone, network, plan_size, 
@@ -451,7 +454,7 @@ def submit_purchase():
         cur.close()
         conn.close()
         
-        print(f"✅ Purchase request created with ID: {purchase_id} (Charged: ₦{total_amount} = ₦{plan_price} + ₦{service_charge} fee)")
+        print(f"✅ Purchase request created with ID: {purchase_id}")
         return jsonify({'success': True, 'purchase_id': purchase_id})
         
     except Exception as e:
@@ -517,7 +520,7 @@ def decline_purchase(purchase_id):
             user_email = purchase[0]
             total_amount = purchase[1]
             
-            # REFUND the user since money was deducted when they submitted
+            # REFUND the user
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
                        (total_amount, user_email))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
