@@ -34,6 +34,14 @@ def init_database():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # DROP old tables first (this fixes the email → username change)
+        print("🔄 Dropping old tables...")
+        cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE")
+        print("✅ Old tables dropped!")
+        
         # Users table - email removed, username added
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
@@ -49,7 +57,7 @@ def init_database():
             )
         """)
         
-        # Pending payments table - email replaced with username
+        # Pending payments table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
@@ -64,7 +72,7 @@ def init_database():
             )
         """)
         
-        # Pending purchases table - email replaced with username
+        # Pending purchases table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_purchases (
                 id SERIAL PRIMARY KEY,
@@ -81,7 +89,7 @@ def init_database():
             )
         """)
         
-        # Referral rewards table - email replaced with username
+        # Referral rewards table
         cur.execute("""
             CREATE TABLE IF NOT EXISTS referral_rewards (
                 id SERIAL PRIMARY KEY,
