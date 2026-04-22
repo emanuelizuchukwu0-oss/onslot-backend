@@ -54,7 +54,7 @@ def create_tables():
             )
         """)
         
-        # Create pending_payments table
+        # Create pending_payments table (wallet funding)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS pending_payments (
                 id SERIAL PRIMARY KEY,
@@ -62,6 +62,7 @@ def create_tables():
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
                 amount INT,
+                amount_sent INT,
                 service_charge INT DEFAULT 50,
                 total_amount INT,
                 transaction_ref VARCHAR(100),
@@ -258,13 +259,16 @@ def submit_funding():
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
-        amount = data.get('amount')
+        amount_to_add = data.get('amount')  # This is already after fee deduction
         service_charge = data.get('serviceCharge', 50)
-        total_amount = data.get('totalAmount', amount)
+        total_amount = data.get('totalAmount', amount_to_add)
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
-        if not user_email or not amount or not transaction_ref:
+        # Calculate how much user actually sent (amount_to_add + fee)
+        amount_sent = amount_to_add + service_charge
+        
+        if not user_email or not amount_to_add or not transaction_ref:
             return jsonify({'success': False, 'error': 'Missing required fields'})
         
         conn = get_db_connection()
@@ -272,18 +276,19 @@ def submit_funding():
         
         cur.execute("""
             INSERT INTO pending_payments (
-                user_email, user_name, user_phone, amount, 
+                user_email, user_name, user_phone, amount, amount_sent,
                 service_charge, total_amount, transaction_ref, payment_method
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
-        """, (user_email, user_name, user_phone, amount, service_charge, total_amount, transaction_ref, payment_method))
+        """, (user_email, user_name, user_phone, amount_to_add, amount_sent, 
+              service_charge, total_amount, transaction_ref, payment_method))
         
         payment_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
         
-        print(f"✅ Funding request created with ID: {payment_id}")
+        print(f"✅ Funding request created with ID: {payment_id} (User sends ₦{amount_sent}, gets ₦{amount_to_add})")
         return jsonify({'success': True, 'payment_id': payment_id})
         
     except Exception as e:
@@ -322,13 +327,13 @@ def approve_funding(payment_id):
             return jsonify({'success': False, 'error': 'Payment not found'})
         
         user_email = payment[0]
-        amount = payment[1]
+        amount_to_add = payment[1]  # This is the amount after fee deduction
         
-        print(f"Adding ₦{amount} to user {user_email}")
+        print(f"Adding ₦{amount_to_add} to user {user_email}")
         
-        # ADD money to user's wallet (this is where money is added)
+        # ADD money to user's wallet
         cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                   (amount, user_email))
+                   (amount_to_add, user_email))
         
         # Update payment status
         cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
@@ -337,7 +342,7 @@ def approve_funding(payment_id):
         cur.close()
         conn.close()
         
-        print(f"✅ Funding approved! ₦{amount} added to {user_email}")
+        print(f"✅ Funding approved! ₦{amount_to_add} added to {user_email}")
         return jsonify({'success': True})
         
     except Exception as e:
@@ -353,7 +358,7 @@ def decline_funding(payment_id):
         cur = conn.cursor()
         
         # IMPORTANT: Just mark as declined - NO money is deducted because none was added
-        # The money was never added to user's wallet, so nothing to refund
+        # The money was never added to user's wallet, so nothing to remove
         cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
         conn.commit()
         
@@ -388,18 +393,20 @@ def submit_purchase():
             return jsonify({'success': False, 'error': 'User not found'})
         
         balance = result[0]
-        total_amount = data.get('totalAmount')
+        plan_price = data.get('planPrice')
+        service_charge = data.get('serviceCharge', 50)
+        total_amount = plan_price + service_charge  # Calculate total with fee
         
         if balance < total_amount:
             cur.close()
             conn.close()
-            return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
+            return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount} (₦{plan_price} + ₦{service_charge} fee)'})
         
-        # Deduct from wallet immediately
+        # Deduct total amount from wallet immediately
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
                    (total_amount, data.get('userEmail')))
         
-        # Insert purchase record
+        # Insert purchase record with all details
         cur.execute("""
             INSERT INTO pending_purchases (
                 user_email, user_name, user_phone, network, plan_size, 
@@ -413,9 +420,9 @@ def submit_purchase():
             data.get('userPhone'),
             data.get('network'), 
             data.get('planSize'),
-            data.get('planPrice'),
-            data.get('serviceCharge', 50),
-            data.get('totalAmount'),
+            plan_price,
+            service_charge,
+            total_amount,
             data.get('phoneNumber'),
             data.get('validity'),
             balance
@@ -426,7 +433,7 @@ def submit_purchase():
         cur.close()
         conn.close()
         
-        print(f"✅ Purchase request created with ID: {purchase_id}")
+        print(f"✅ Purchase request created with ID: {purchase_id} (Charged: ₦{total_amount} = ₦{plan_price} + ₦{service_charge} fee)")
         return jsonify({'success': True, 'purchase_id': purchase_id})
         
     except Exception as e:
@@ -489,12 +496,15 @@ def decline_purchase(purchase_id):
         purchase = cur.fetchone()
         
         if purchase:
+            user_email = purchase[0]
+            total_amount = purchase[1]
+            
             # REFUND the user since money was deducted when they submitted
             cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
-                       (purchase[1], purchase[0]))
+                       (total_amount, user_email))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
             conn.commit()
-            print(f"✅ Refunded ₦{purchase[1]} to {purchase[0]}")
+            print(f"✅ Refunded ₦{total_amount} to {user_email}")
         
         cur.close()
         conn.close()
