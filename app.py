@@ -111,6 +111,85 @@ def init_database():
         print(f"Database initialization error: {e}")
         return False
 
+# ============ FORCE RESET ROUTE ============
+@app.route('/api/force-reset', methods=['GET'])
+def force_reset():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Drop everything
+        cur.execute("DROP TABLE IF EXISTS referral_rewards CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
+        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
+        cur.execute("DROP TABLE IF EXISTS users CASCADE")
+        conn.commit()
+        
+        # Recreate all tables
+        cur.execute("""
+            CREATE TABLE users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                referral_code VARCHAR(50) UNIQUE,
+                referral_count INT DEFAULT 0,
+                referral_reward_claimed BOOLEAN DEFAULT FALSE,
+                wallet_balance INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        cur.execute("""
+            CREATE TABLE pending_payments (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                phone VARCHAR(20),
+                amount INT NOT NULL,
+                service_charge INT DEFAULT 50,
+                transaction_ref VARCHAR(100) UNIQUE,
+                payment_method VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        cur.execute("""
+            CREATE TABLE pending_purchases (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                phone VARCHAR(20),
+                network VARCHAR(20) NOT NULL,
+                plan_size VARCHAR(20) NOT NULL,
+                plan_price INT NOT NULL,
+                service_charge INT DEFAULT 50,
+                validity VARCHAR(50),
+                phone_number VARCHAR(20) NOT NULL,
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        cur.execute("""
+            CREATE TABLE referral_rewards (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                network VARCHAR(20) NOT NULL,
+                amount INT DEFAULT 400,
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'message': 'Database completely reset! All tables recreated.'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 # Initialize database on startup
 print("🔄 Initializing database...")
 init_database()
@@ -131,7 +210,8 @@ def home():
             '/api/admin/pending-funding',
             '/api/admin/pending-purchases',
             '/api/admin/pending-referrals',
-            '/api/health'
+            '/api/health',
+            '/api/force-reset'
         ]
     })
 
@@ -144,7 +224,7 @@ def health_check():
 def signup():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         phone = data.get('phone', '').strip()
         password = data.get('password', '').strip()
         referral_code_input = data.get('referralCode', '').strip()
@@ -226,7 +306,7 @@ def signup():
 def login():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         password = data.get('password', '').strip()
         
         if not username or not password:
@@ -258,12 +338,12 @@ def login():
     except Exception as e:
         print(f"Login error: {e}")
         return jsonify({'success': False, 'error': str(e)})
-    
+
 @app.route('/api/debug-login', methods=['POST'])
 def debug_login():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         password = data.get('password', '').strip()
         
         conn = get_db_connection()
@@ -276,12 +356,13 @@ def debug_login():
         conn.close()
         
         if not user:
-            return jsonify({'found': False, 'error': 'User not found'})
+            return jsonify({'found': False, 'error': 'User not found', 'username_searched': username})
         
         return jsonify({
             'found': True,
-            'stored_hash': user['password'],
-            'computed_hash': hash_password(password),
+            'username': user['username'],
+            'stored_hash': user['password'][:20] + '...',
+            'computed_hash': hash_password(password)[:20] + '...',
             'match': user['password'] == hash_password(password)
         })
     except Exception as e:
@@ -296,7 +377,7 @@ def get_user(username):
             SELECT id, username, phone, referral_code, referral_count, 
                    wallet_balance, referral_reward_claimed, created_at
             FROM users WHERE username = %s
-        """, (username,))
+        """, (username.lower(),))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -310,7 +391,7 @@ def get_user(username):
 def submit_funding():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         phone = data.get('phone', '').strip()
         amount = data.get('amount', 0)
         service_charge = data.get('serviceCharge', 50)
@@ -354,7 +435,7 @@ def submit_funding():
 def submit_purchase():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         phone = data.get('phone', '').strip()
         network = data.get('network', '').strip()
         plan_size = data.get('planSize', '').strip()
@@ -411,7 +492,7 @@ def submit_purchase():
 def submit_referral_reward():
     try:
         data = request.json
-        username = data.get('username', '').strip()
+        username = data.get('username', '').strip().lower()
         phone = data.get('phone', '').strip()
         network = data.get('network', '').strip()
         amount = data.get('amount', 400)
