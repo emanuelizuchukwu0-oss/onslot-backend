@@ -7,8 +7,6 @@ import random
 from datetime import datetime
 
 app = Flask(__name__)
-
-# Allow all origins
 CORS(app)
 
 # Database connection
@@ -25,25 +23,6 @@ def get_db_connection():
     except Exception as e:
         print(f"Database connection error: {e}")
         raise e
-
-# Drop and recreate all tables for a FRESH START
-def reset_tables():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        
-        # Drop all existing tables (fresh start)
-        cur.execute("DROP TABLE IF EXISTS pending_purchases CASCADE")
-        cur.execute("DROP TABLE IF EXISTS pending_payments CASCADE")
-        cur.execute("DROP TABLE IF EXISTS data_plans CASCADE")
-        cur.execute("DROP TABLE IF EXISTS users CASCADE")
-        
-        conn.commit()
-        cur.close()
-        conn.close()
-        print("✅ All tables dropped - Fresh start!")
-    except Exception as e:
-        print(f"Error dropping tables: {e}")
 
 # Create tables on startup
 def init_tables():
@@ -62,19 +41,7 @@ def init_tables():
                 referral_code VARCHAR(50),
                 referral_count INT DEFAULT 0,
                 wallet_balance INT DEFAULT 0,
-                created_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        
-        # Data plans table
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS data_plans (
-                id SERIAL PRIMARY KEY,
-                network VARCHAR(20),
-                plan_size VARCHAR(20),
-                plan_name VARCHAR(100),
-                price INT,
-                is_active BOOLEAN DEFAULT TRUE,
+                referral_reward_claimed BOOLEAN DEFAULT FALSE,
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
@@ -87,6 +54,8 @@ def init_tables():
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
                 amount INT,
+                service_charge INT DEFAULT 50,
+                total_amount INT,
                 transaction_ref VARCHAR(100),
                 payment_method VARCHAR(50),
                 status VARCHAR(20) DEFAULT 'pending',
@@ -102,65 +71,40 @@ def init_tables():
                 user_name VARCHAR(100),
                 user_phone VARCHAR(20),
                 network VARCHAR(20),
-                plan_id INT,
-                plan_name VARCHAR(100),
-                plan_size VARCHAR(20),
-                amount INT,
+                plan_size VARCHAR(50),
+                plan_price INT,
+                service_charge INT DEFAULT 50,
+                total_amount INT,
                 phone_number VARCHAR(20),
+                validity VARCHAR(50),
+                wallet_balance_before INT,
                 status VARCHAR(20) DEFAULT 'pending',
                 timestamp TIMESTAMP DEFAULT NOW()
             )
         """)
         
-        # Insert default data plans
-        cur.execute("SELECT COUNT(*) FROM data_plans")
-        if cur.fetchone()[0] == 0:
-            default_plans = [
-                # MTN Plans
-                ('mtn', '200MB', 'MTN 200MB Data', 200),
-                ('mtn', '500MB', 'MTN 500MB Data', 450),
-                ('mtn', '1GB', 'MTN 1GB Data', 850),
-                ('mtn', '2GB', 'MTN 2GB Data', 1600),
-                ('mtn', '5GB', 'MTN 5GB Data', 3800),
-                ('mtn', '10GB', 'MTN 10GB Data', 7000),
-                # Airtel Plans
-                ('airtel', '200MB', 'Airtel 200MB Data', 190),
-                ('airtel', '500MB', 'Airtel 500MB Data', 440),
-                ('airtel', '1GB', 'Airtel 1GB Data', 830),
-                ('airtel', '2GB', 'Airtel 2GB Data', 1550),
-                ('airtel', '5GB', 'Airtel 5GB Data', 3700),
-                ('airtel', '10GB', 'Airtel 10GB Data', 6800),
-                # Glo Plans
-                ('glo', '200MB', 'Glo 200MB Data', 180),
-                ('glo', '500MB', 'Glo 500MB Data', 430),
-                ('glo', '1GB', 'Glo 1GB Data', 820),
-                ('glo', '2GB', 'Glo 2GB Data', 1500),
-                ('glo', '5GB', 'Glo 5GB Data', 3600),
-                ('glo', '10GB', 'Glo 10GB Data', 6500),
-                # 9mobile Plans
-                ('9mobile', '200MB', '9mobile 200MB Data', 210),
-                ('9mobile', '500MB', '9mobile 500MB Data', 460),
-                ('9mobile', '1GB', '9mobile 1GB Data', 880),
-                ('9mobile', '2GB', '9mobile 2GB Data', 1650),
-                ('9mobile', '5GB', '9mobile 5GB Data', 3900),
-                ('9mobile', '10GB', '9mobile 10GB Data', 7200),
-            ]
-            for plan in default_plans:
-                cur.execute("""
-                    INSERT INTO data_plans (network, plan_size, plan_name, price) 
-                    VALUES (%s, %s, %s, %s)
-                """, plan)
-            print("✅ Default data plans inserted")
+        # Pending referral rewards
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_referrals (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(100),
+                user_name VARCHAR(100),
+                phone VARCHAR(20),
+                network VARCHAR(20),
+                amount INT DEFAULT 400,
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """)
         
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Tables created successfully - Fresh database ready!")
+        print("✅ Tables created successfully!")
     except Exception as e:
         print(f"Error creating tables: {e}")
 
-# Reset and initialize
-reset_tables()
+# Initialize tables
 init_tables()
 
 # Routes
@@ -185,7 +129,7 @@ def signup():
     
     try:
         conn = get_db_connection()
-        cur = conn.cursor()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
         
         cur.execute("SELECT id FROM users WHERE email = %s", (email,))
         if cur.fetchone():
@@ -210,11 +154,7 @@ def signup():
         cur.close()
         conn.close()
         
-        user_dict = {
-            'id': user[0], 'name': user[1], 'email': user[2], 'phone': user[3], 
-            'referral_code': user[4], 'referral_count': user[5], 'wallet_balance': user[6]
-        }
-        return jsonify({'success': True, 'user': user_dict})
+        return jsonify({'success': True, 'user': user})
     except Exception as e:
         print(f"Signup error: {e}")
         return jsonify({'success': False, 'error': str(e)})
@@ -246,7 +186,7 @@ def get_user(email):
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT name, email, referral_code, referral_count, wallet_balance FROM users WHERE email = %s", (email,))
+        cur.execute("SELECT id, name, email, phone, referral_code, referral_count, wallet_balance, referral_reward_claimed FROM users WHERE email = %s", (email,))
         user = cur.fetchone()
         cur.close()
         conn.close()
@@ -254,22 +194,6 @@ def get_user(email):
     except Exception as e:
         print(f"Get user error: {e}")
         return jsonify(None)
-
-# ============ DATA PLANS ============
-
-@app.route('/api/data-plans', methods=['GET'])
-def get_data_plans():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM data_plans WHERE is_active = true ORDER BY network, price")
-        plans = cur.fetchall()
-        cur.close()
-        conn.close()
-        return jsonify(plans)
-    except Exception as e:
-        print(f"Get data plans error: {e}")
-        return jsonify([])
 
 # ============ WALLET FUNDING ============
 
@@ -280,10 +204,20 @@ def submit_funding():
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("""
-            INSERT INTO pending_payments (user_email, user_name, user_phone, amount, transaction_ref, payment_method) 
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (data.get('userEmail'), data.get('userName'), data.get('userPhone'), 
-              data.get('amount'), data.get('transactionRef'), data.get('paymentMethod')))
+            INSERT INTO pending_payments (
+                user_email, user_name, user_phone, amount, 
+                service_charge, total_amount, transaction_ref, payment_method
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            data.get('userEmail'), 
+            data.get('userName'), 
+            data.get('userPhone'), 
+            data.get('amount'),
+            data.get('serviceCharge', 50),
+            data.get('totalAmount'),
+            data.get('transactionRef'), 
+            data.get('paymentMethod')
+        ))
         conn.commit()
         cur.close()
         conn.close()
@@ -312,12 +246,13 @@ def approve_funding(payment_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT * FROM pending_payments WHERE id = %s", (payment_id,))
+        cur.execute("SELECT user_email, total_amount FROM pending_payments WHERE id = %s", (payment_id,))
         payment = cur.fetchone()
         
         if payment:
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+                       (payment[1], payment[0]))
             cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
-            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (payment[4], payment[1]))
         
         conn.commit()
         cur.close()
@@ -350,28 +285,55 @@ def submit_purchase():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Get current wallet balance
         cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
-        balance = cur.fetchone()[0]
+        result = cur.fetchone()
         
-        if balance < data.get('amount'):
+        if not result:
             cur.close()
             conn.close()
-            return jsonify({'success': False, 'error': 'Insufficient wallet balance'})
+            return jsonify({'success': False, 'error': 'User not found'})
         
+        balance = result[0]
+        total_amount = data.get('totalAmount')
+        
+        if balance < total_amount:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
+        
+        # Deduct from wallet
         cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
-                   (data.get('amount'), data.get('userEmail')))
+                   (total_amount, data.get('userEmail')))
         
+        # Insert purchase record
         cur.execute("""
-            INSERT INTO pending_purchases (user_email, user_name, user_phone, network, plan_id, plan_name, plan_size, amount, phone_number) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (data.get('userEmail'), data.get('userName'), data.get('userPhone'),
-              data.get('network'), data.get('planId'), data.get('planName'), 
-              data.get('planSize'), data.get('amount'), data.get('phoneNumber')))
+            INSERT INTO pending_purchases (
+                user_email, user_name, user_phone, network, plan_size, 
+                plan_price, service_charge, total_amount, phone_number, 
+                validity, wallet_balance_before
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('userEmail'), 
+            data.get('userName'), 
+            data.get('userPhone'),
+            data.get('network'), 
+            data.get('planSize'),
+            data.get('planPrice'),
+            data.get('serviceCharge', 50),
+            data.get('totalAmount'),
+            data.get('phoneNumber'),
+            data.get('validity'),
+            balance
+        ))
         
+        purchase_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({'success': True})
+        
+        return jsonify({'success': True, 'purchase_id': purchase_id})
     except Exception as e:
         print(f"Submit purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
@@ -381,10 +343,23 @@ def get_pending_purchases():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-        cur.execute("SELECT * FROM pending_purchases WHERE status = 'pending' ORDER BY id DESC")
+        cur.execute("""
+            SELECT id, user_email, user_name, user_phone, network, plan_size, 
+                   plan_price, service_charge, total_amount, phone_number, 
+                   validity, status, timestamp 
+            FROM pending_purchases 
+            WHERE status = 'pending' 
+            ORDER BY id DESC
+        """)
         purchases = cur.fetchall()
         cur.close()
         conn.close()
+        
+        # Format for frontend compatibility
+        for purchase in purchases:
+            purchase['amount'] = purchase['plan_price']
+            purchase['wallet_balance'] = 'Pending'
+            
         return jsonify(purchases)
     except Exception as e:
         print(f"Get pending purchases error: {e}")
@@ -410,11 +385,12 @@ def decline_purchase(purchase_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute("SELECT * FROM pending_purchases WHERE id = %s", (purchase_id,))
+        cur.execute("SELECT user_email, total_amount FROM pending_purchases WHERE id = %s", (purchase_id,))
         purchase = cur.fetchone()
         
         if purchase:
-            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", (purchase[7], purchase[1]))
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+                       (purchase[1], purchase[0]))
             cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
         
         conn.commit()
@@ -425,24 +401,86 @@ def decline_purchase(purchase_id):
         print(f"Decline purchase error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-# ============ REFERRAL ============
+# ============ REFERRAL REWARDS ============
 
-@app.route('/api/referral-reward', methods=['POST'])
-def referral_reward():
+@app.route('/api/submit-referral-reward', methods=['POST'])
+def submit_referral_reward():
     data = request.json
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400 WHERE email = %s AND referral_count >= 5", 
-                   (data.get('userEmail'),))
+        
+        cur.execute("""
+            INSERT INTO pending_referrals (user_email, user_name, phone, network, amount) 
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('userEmail'),
+            data.get('userName'),
+            data.get('phone'),
+            data.get('network'),
+            data.get('amount', 400)
+        ))
+        
+        referral_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'referral_id': referral_id})
+    except Exception as e:
+        print(f"Submit referral reward error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/admin/pending-referrals', methods=['GET'])
+def get_pending_referrals():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM pending_referrals WHERE status = 'pending' ORDER BY id DESC")
+        referrals = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(referrals)
+    except Exception as e:
+        print(f"Get pending referrals error: {e}")
+        return jsonify([])
+
+@app.route('/api/admin/approve-referral/<int:referral_id>', methods=['POST'])
+def approve_referral(referral_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT user_email FROM pending_referrals WHERE id = %s", (referral_id,))
+        result = cur.fetchone()
+        
+        if result:
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400, referral_reward_claimed = TRUE WHERE email = %s", (result[0],))
+            cur.execute("UPDATE pending_referrals SET status = 'completed' WHERE id = %s", (referral_id,))
+        
         conn.commit()
         cur.close()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
-        print(f"Referral reward error: {e}")
+        print(f"Approve referral error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/admin/decline-referral/<int:referral_id>', methods=['POST'])
+def decline_referral(referral_id):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE pending_referrals SET status = 'declined' WHERE id = %s", (referral_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Decline referral error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
