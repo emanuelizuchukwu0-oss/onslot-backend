@@ -1,62 +1,198 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import os
 import random
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
 
-# ============ IN-MEMORY STORAGE (NO DATABASE NEEDED) ============
-# This stores users even when the database is down
-
-users = []
-pending_funding = []
-pending_purchases = []
-pending_referrals = []
-
-# Add test user so regular users can login
-users.append({
-    'id': 1,
-    'name': 'Test User',
-    'email': 'test@test.com',
-    'phone': '08012345678',
-    'password': '123456',
-    'referral_code': 'TEST1234',
-    'referral_count': 0,
-    'wallet_balance': 1000,
-    'referral_reward_claimed': False
+# Configure CORS properly
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
 })
 
-# Add a demo user
-users.append({
-    'id': 2,
-    'name': 'Demo User',
-    'email': 'demo@onslot.com',
-    'phone': '08012345679',
-    'password': 'demo123',
-    'referral_code': 'DEMO5678',
-    'referral_count': 0,
-    'wallet_balance': 500,
-    'referral_reward_claimed': False
-})
+# Database connection
+DATABASE_URL = os.environ.get('DATABASE_URL')
 
-print(f"✅ Loaded {len(users)} users into memory")
+print(f"Database URL loaded: {'Yes' if DATABASE_URL else 'No'}")
+
+def get_db_connection():
+    if not DATABASE_URL:
+        raise Exception("DATABASE_URL environment variable not set!")
+    try:
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+        return conn
+    except Exception as e:
+        print(f"Database connection error: {e}")
+        raise e
+
+# Add missing column to existing table
+def add_missing_columns():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Add bank_name column if it doesn't exist (accept both field names)
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='pending_payments' AND column_name='bank_name') THEN
+                    ALTER TABLE pending_payments ADD COLUMN bank_name VARCHAR(100);
+                END IF;
+            END $$;
+        """)
+        
+        # Add account_name column if it doesn't exist
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='pending_payments' AND column_name='account_name') THEN
+                    ALTER TABLE pending_payments ADD COLUMN account_name VARCHAR(100);
+                END IF;
+            END $$;
+        """)
+        
+        # Add amount_sent column if it doesn't exist
+        cur.execute("""
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                              WHERE table_name='pending_payments' AND column_name='amount_sent') THEN
+                    ALTER TABLE pending_payments ADD COLUMN amount_sent INT DEFAULT 0;
+                END IF;
+            END $$;
+        """)
+        
+        conn.commit()
+        print("✅ Missing columns added successfully!")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error adding columns: {e}")
+
+# Create tables
+def create_tables():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Create users table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100),
+                email VARCHAR(100) UNIQUE,
+                phone VARCHAR(20),
+                password VARCHAR(255),
+                referral_code VARCHAR(50),
+                referral_count INT DEFAULT 0,
+                wallet_balance INT DEFAULT 0,
+                referral_reward_claimed BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # Create pending_payments table with both bank_name and account_name
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_payments (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(100),
+                user_name VARCHAR(100),
+                user_phone VARCHAR(20),
+                bank_name VARCHAR(100),
+                account_name VARCHAR(100),
+                amount INT,
+                amount_sent INT,
+                service_charge INT DEFAULT 50,
+                total_amount INT,
+                transaction_ref VARCHAR(100),
+                payment_method VARCHAR(50),
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # Create pending_purchases table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_purchases (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(100),
+                user_name VARCHAR(100),
+                user_phone VARCHAR(20),
+                network VARCHAR(20),
+                plan_size VARCHAR(50),
+                plan_price INT,
+                service_charge INT DEFAULT 50,
+                total_amount INT,
+                phone_number VARCHAR(20),
+                validity VARCHAR(50),
+                wallet_balance_before INT,
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        # Create pending_referrals table
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS pending_referrals (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(100),
+                user_name VARCHAR(100),
+                phone VARCHAR(20),
+                network VARCHAR(20),
+                amount INT DEFAULT 400,
+                status VARCHAR(20) DEFAULT 'pending',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        
+        conn.commit()
+        print("✅ Tables created successfully!")
+        
+        # Insert test user if no users exist
+        cur.execute("SELECT COUNT(*) FROM users")
+        user_count = cur.fetchone()[0]
+        if user_count == 0:
+            test_referral_code = "TEST" + str(random.randint(1000, 9999))
+            cur.execute("""
+                INSERT INTO users (name, email, phone, password, referral_code, wallet_balance)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """, ("Test User", "test@test.com", "08012345678", "123456", test_referral_code, 1000))
+            conn.commit()
+            print("✅ Test user created (email: test@test.com, password: 123456)")
+        
+        cur.close()
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error creating tables: {e}")
+
+# Initialize tables
+create_tables()
+add_missing_columns()
 
 # ============ ROUTES ============
 
 @app.route('/', methods=['GET'])
 def home():
-    return jsonify({'status': 'ok', 'message': 'OnSlot API is running!', 'users_loaded': len(users)})
+    return jsonify({'status': 'ok', 'message': 'OnSlot Data API is running'})
 
 @app.route('/api/health', methods=['GET'])
-def health():
-    return jsonify({
-        'status': 'ok', 
-        'message': 'API is healthy', 
-        'users_loaded': len(users),
-        'mode': 'in-memory'
-    })
+def health_check():
+    try:
+        conn = get_db_connection()
+        conn.close()
+        return jsonify({'status': 'ok', 'message': 'API is healthy', 'database': 'connected'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': 'Database connection failed', 'error': str(e)}), 500
 
 # ============ USER AUTHENTICATION ============
 
@@ -73,40 +209,40 @@ def signup():
         if not all([name, email, phone, password]):
             return jsonify({'success': False, 'error': 'All fields are required'})
         
-        # Check if email exists
-        if any(u['email'] == email for u in users):
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        
+        # Check if user exists
+        cur.execute("SELECT id FROM users WHERE email = %s", (email,))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
             return jsonify({'success': False, 'error': 'Email already registered'})
         
         # Generate referral code
         referral_code = name[:3].upper() + str(random.randint(1000, 9999))
         
-        # Create new user
-        new_user = {
-            'id': len(users) + 1,
-            'name': name,
-            'email': email,
-            'phone': phone,
-            'password': password,
-            'referral_code': referral_code,
-            'referral_count': 0,
-            'wallet_balance': 0,
-            'referral_reward_claimed': False
-        }
-        users.append(new_user)
+        # Insert user
+        cur.execute("""
+            INSERT INTO users (name, email, phone, password, referral_code) 
+            VALUES (%s, %s, %s, %s, %s) 
+            RETURNING id, name, email, phone, referral_code, referral_count, wallet_balance
+        """, (name, email, phone, password, referral_code))
+        
+        user = cur.fetchone()
         
         # Handle referral
         if referral_code_input:
-            for u in users:
-                if u['referral_code'] == referral_code_input:
-                    u['referral_count'] = u.get('referral_count', 0) + 1
-                    break
+            cur.execute("UPDATE users SET referral_count = referral_count + 1 WHERE referral_code = %s", (referral_code_input,))
         
-        print(f"✅ New user created: {email}")
-        return jsonify({'success': True, 'user': new_user})
+        conn.commit()
+        cur.close()
+        conn.close()
         
+        return jsonify({'success': True, 'user': user})
     except Exception as e:
         print(f"Signup error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -115,14 +251,11 @@ def login():
         email = data.get('email')
         password = data.get('password')
         
-        print(f"Login attempt: {email}")
-        
         if not email or not password:
             return jsonify({'success': False, 'error': 'Email and password required'})
         
-        # Admin login (hardcoded - always works)
+        # Handle admin login
         if email == "admin" and password == "admin123":
-            print("✅ Admin login successful")
             admin_user = {
                 'id': 999,
                 'name': 'Administrator',
@@ -135,30 +268,34 @@ def login():
             }
             return jsonify({'success': True, 'user': admin_user})
         
-        # Regular user login - search in memory
-        for user in users:
-            if user['email'] == email and user['password'] == password:
-                print(f"✅ User login successful: {email}")
-                # Don't send password back
-                user_copy = user.copy()
-                user_copy.pop('password', None)
-                return jsonify({'success': True, 'user': user_copy})
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM users WHERE email = %s AND password = %s", (email, password))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
         
-        print(f"❌ Login failed: {email}")
-        return jsonify({'success': False, 'error': 'Invalid credentials'})
-        
+        if user:
+            return jsonify({'success': True, 'user': user})
+        else:
+            return jsonify({'success': False, 'error': 'Invalid credentials'})
     except Exception as e:
         print(f"Login error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/user/<email>', methods=['GET'])
 def get_user(email):
-    for user in users:
-        if user['email'] == email:
-            user_copy = user.copy()
-            user_copy.pop('password', None)
-            return jsonify(user_copy)
-    return jsonify(None)
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT id, name, email, phone, referral_code, referral_count, wallet_balance, referral_reward_claimed FROM users WHERE email = %s", (email,))
+        user = cur.fetchone()
+        cur.close()
+        conn.close()
+        return jsonify(user) if user else jsonify(None)
+    except Exception as e:
+        print(f"Get user error: {e}")
+        return jsonify(None), 500
 
 # ============ WALLET FUNDING ============
 
@@ -166,73 +303,144 @@ def get_user(email):
 def submit_funding():
     try:
         data = request.json
-        print(f"💰 Funding request: {data}")
+        print(f"💰 Funding request received: {data}")
         
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'})
+        
+        # Get data from request - ACCEPT BOTH field names (bankName from frontend)
         user_email = data.get('userEmail')
         user_name = data.get('userName')
         user_phone = data.get('userPhone')
-        bank_name = data.get('bankName') or data.get('account_name') or 'N/A'
+        
+        # IMPORTANT FIX: Accept both 'bankName' (frontend) and 'accountName' (backend)
+        bank_name = data.get('bankName') or data.get('account_name') or data.get('accountName') or 'N/A'
+        
         amount_to_add = data.get('amount')
+        amount_sent = data.get('amountSent', (amount_to_add + 50) if amount_to_add else 0)
         service_charge = data.get('serviceCharge', 50)
         total_amount = data.get('totalAmount', amount_to_add)
         transaction_ref = data.get('transactionRef')
         payment_method = data.get('paymentMethod')
         
+        print(f"Processing: {bank_name} sends ₦{amount_sent}, fee ₦{service_charge}, gets ₦{amount_to_add}")
+        
+        # Validate required fields
         if not user_email:
             return jsonify({'success': False, 'error': 'User email required'})
-        if not amount_to_add or amount_to_add <= 0:
+        if not user_name:
+            return jsonify({'success': False, 'error': 'User name required'})
+        if amount_to_add is None or amount_to_add <= 0:
             return jsonify({'success': False, 'error': 'Valid amount required'})
+        if not transaction_ref:
+            return jsonify({'success': False, 'error': 'Transaction reference required'})
         
-        new_funding = {
-            'id': len(pending_funding) + 1,
-            'user_email': user_email,
-            'user_name': user_name,
-            'user_phone': user_phone,
-            'bank_name': bank_name,
-            'amount': amount_to_add,
-            'service_charge': service_charge,
-            'total_amount': total_amount,
-            'transaction_ref': transaction_ref,
-            'payment_method': payment_method,
-            'status': 'pending',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        pending_funding.append(new_funding)
+        conn = get_db_connection()
+        cur = conn.cursor()
         
-        print(f"✅ Funding request created with ID: {new_funding['id']}")
-        return jsonify({'success': True, 'payment_id': new_funding['id']})
+        # Insert into pending_payments (store bank_name in both fields for compatibility)
+        cur.execute("""
+            INSERT INTO pending_payments (
+                user_email, user_name, user_phone, bank_name, account_name, amount, 
+                amount_sent, service_charge, total_amount, transaction_ref, payment_method
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (user_email, user_name, user_phone, bank_name, bank_name, amount_to_add, 
+              amount_sent, service_charge, total_amount, transaction_ref, payment_method))
+        
+        payment_id = cur.fetchone()[0]
+        conn.commit()
+        
+        print(f"✅ Funding request inserted with ID: {payment_id}")
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'payment_id': payment_id})
         
     except Exception as e:
-        print(f"Submit funding error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"❌ Submit funding error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/pending-funding', methods=['GET'])
 def get_pending_funding():
-    return jsonify([f for f in pending_funding if f['status'] == 'pending'])
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM pending_payments WHERE status = 'pending' ORDER BY id DESC")
+        payments = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(payments)
+    except Exception as e:
+        print(f"Get pending funding error: {e}")
+        return jsonify([])
 
 @app.route('/api/admin/approve-funding/<int:payment_id>', methods=['POST'])
 def approve_funding(payment_id):
-    for funding in pending_funding:
-        if funding['id'] == payment_id:
-            funding['status'] = 'completed'
-            # Add to user wallet
-            for user in users:
-                if user['email'] == funding['user_email']:
-                    user['wallet_balance'] = user.get('wallet_balance', 0) + funding['amount']
-                    print(f"✅ Added ₦{funding['amount']} to {user['email']}. New balance: ₦{user['wallet_balance']}")
-                    break
-            break
-    return jsonify({'success': True})
+    try:
+        print(f"✅ Approving funding ID: {payment_id}")
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Get payment details
+        cur.execute("SELECT user_email, amount FROM pending_payments WHERE id = %s", (payment_id,))
+        payment = cur.fetchone()
+        
+        if not payment:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'Payment not found'})
+        
+        user_email = payment[0]
+        amount_to_add = payment[1]
+        
+        print(f"Adding ₦{amount_to_add} to user {user_email}")
+        
+        # ADD money to user's wallet
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+                   (amount_to_add, user_email))
+        
+        # Update payment status
+        cur.execute("UPDATE pending_payments SET status = 'completed' WHERE id = %s", (payment_id,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        print(f"✅ Funding approved! ₦{amount_to_add} added to {user_email}")
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"❌ Approve funding error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/decline-funding/<int:payment_id>', methods=['POST'])
 def decline_funding(payment_id):
-    for funding in pending_funding:
-        if funding['id'] == payment_id:
-            funding['status'] = 'declined'
-            break
-    return jsonify({'success': True})
+    try:
+        print(f"❌ Declining funding ID: {payment_id}")
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Just mark as declined - NO money action needed
+        cur.execute("UPDATE pending_payments SET status = 'declined' WHERE id = %s", (payment_id,))
+        conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        print(f"✅ Funding request {payment_id} marked as declined")
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Decline funding error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-# ============ DATA PURCHASE ============
+# ============ DATA PURCHASE (same as before, keep working) ============
 
 @app.route('/api/submit-purchase', methods=['POST'])
 def submit_purchase():
@@ -240,75 +448,112 @@ def submit_purchase():
         data = request.json
         print(f"📱 Purchase request: {data}")
         
-        user_email = data.get('userEmail')
-        plan_price = data.get('planPrice', 0)
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT wallet_balance FROM users WHERE email = %s", (data.get('userEmail'),))
+        result = cur.fetchone()
+        
+        if not result:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': 'User not found'})
+        
+        balance = result[0]
+        plan_price = data.get('planPrice')
         service_charge = data.get('serviceCharge', 50)
         total_amount = plan_price + service_charge
         
-        # Find user and deduct balance
-        user_found = None
-        for user in users:
-            if user['email'] == user_email:
-                user_found = user
-                if user.get('wallet_balance', 0) < total_amount:
-                    return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
-                user['wallet_balance'] = user.get('wallet_balance', 0) - total_amount
-                print(f"💰 Deducted ₦{total_amount} from {user_email}. New balance: ₦{user['wallet_balance']}")
-                break
+        if balance < total_amount:
+            cur.close()
+            conn.close()
+            return jsonify({'success': False, 'error': f'Insufficient balance. Need ₦{total_amount}'})
         
-        if not user_found:
-            return jsonify({'success': False, 'error': 'User not found'})
+        cur.execute("UPDATE users SET wallet_balance = wallet_balance - %s WHERE email = %s", 
+                   (total_amount, data.get('userEmail')))
         
-        new_purchase = {
-            'id': len(pending_purchases) + 1,
-            'user_email': user_email,
-            'user_name': data.get('userName'),
-            'user_phone': data.get('userPhone'),
-            'network': data.get('network'),
-            'plan_size': data.get('planSize'),
-            'plan_price': plan_price,
-            'service_charge': service_charge,
-            'total_amount': total_amount,
-            'phone_number': data.get('phoneNumber'),
-            'validity': data.get('validity'),
-            'status': 'pending',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        pending_purchases.append(new_purchase)
+        cur.execute("""
+            INSERT INTO pending_purchases (
+                user_email, user_name, user_phone, network, plan_size, 
+                plan_price, service_charge, total_amount, phone_number, 
+                validity, wallet_balance_before
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('userEmail'), 
+            data.get('userName'), 
+            data.get('userPhone'),
+            data.get('network'), 
+            data.get('planSize'),
+            plan_price,
+            service_charge,
+            total_amount,
+            data.get('phoneNumber'),
+            data.get('validity'),
+            balance
+        ))
         
-        print(f"✅ Purchase request created with ID: {new_purchase['id']}")
-        return jsonify({'success': True, 'purchase_id': new_purchase['id']})
+        purchase_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        print(f"✅ Purchase request created with ID: {purchase_id}")
+        return jsonify({'success': True, 'purchase_id': purchase_id})
         
     except Exception as e:
         print(f"Submit purchase error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/pending-purchases', methods=['GET'])
 def get_pending_purchases():
-    return jsonify([p for p in pending_purchases if p['status'] == 'pending'])
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM pending_purchases WHERE status = 'pending' ORDER BY id DESC")
+        purchases = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(purchases)
+    except Exception as e:
+        print(f"Get pending purchases error: {e}")
+        return jsonify([])
 
 @app.route('/api/admin/approve-purchase/<int:purchase_id>', methods=['POST'])
 def approve_purchase(purchase_id):
-    for purchase in pending_purchases:
-        if purchase['id'] == purchase_id:
-            purchase['status'] = 'completed'
-            print(f"✅ Purchase {purchase_id} approved - Data sent to {purchase['phone_number']}")
-            break
-    return jsonify({'success': True})
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE pending_purchases SET status = 'completed' WHERE id = %s", (purchase_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Approve purchase error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/decline-purchase/<int:purchase_id>', methods=['POST'])
 def decline_purchase(purchase_id):
-    for purchase in pending_purchases:
-        if purchase['id'] == purchase_id:
-            purchase['status'] = 'declined'
-            # Refund user
-            for user in users:
-                if user['email'] == purchase['user_email']:
-                    user['wallet_balance'] = user.get('wallet_balance', 0) + purchase['total_amount']
-                    print(f"💰 Refunded ₦{purchase['total_amount']} to {user['email']}")
-                    break
-            break
-    return jsonify({'success': True})
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT user_email, total_amount FROM pending_purchases WHERE id = %s", (purchase_id,))
+        purchase = cur.fetchone()
+        
+        if purchase:
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + %s WHERE email = %s", 
+                       (purchase[1], purchase[0]))
+            cur.execute("UPDATE pending_purchases SET status = 'declined' WHERE id = %s", (purchase_id,))
+            conn.commit()
+        
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Decline purchase error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============ REFERRAL REWARDS ============
 
@@ -316,51 +561,86 @@ def decline_purchase(purchase_id):
 def submit_referral_reward():
     try:
         data = request.json
-        new_referral = {
-            'id': len(pending_referrals) + 1,
-            'user_email': data.get('userEmail'),
-            'user_name': data.get('userName'),
-            'phone': data.get('phone'),
-            'network': data.get('network'),
-            'amount': data.get('amount', 400),
-            'status': 'pending',
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        pending_referrals.append(new_referral)
-        return jsonify({'success': True, 'referral_id': new_referral['id']})
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("""
+            INSERT INTO pending_referrals (user_email, user_name, phone, network, amount) 
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
+        """, (
+            data.get('userEmail'),
+            data.get('userName'),
+            data.get('phone'),
+            data.get('network'),
+            data.get('amount', 400)
+        ))
+        
+        referral_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({'success': True, 'referral_id': referral_id})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)})
+        print(f"Submit referral reward error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/pending-referrals', methods=['GET'])
 def get_pending_referrals():
-    return jsonify([r for r in pending_referrals if r['status'] == 'pending'])
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT * FROM pending_referrals WHERE status = 'pending' ORDER BY id DESC")
+        referrals = cur.fetchall()
+        cur.close()
+        conn.close()
+        return jsonify(referrals)
+    except Exception as e:
+        print(f"Get pending referrals error: {e}")
+        return jsonify([])
 
 @app.route('/api/admin/approve-referral/<int:referral_id>', methods=['POST'])
 def approve_referral(referral_id):
-    for referral in pending_referrals:
-        if referral['id'] == referral_id:
-            referral['status'] = 'completed'
-            for user in users:
-                if user['email'] == referral['user_email']:
-                    user['wallet_balance'] = user.get('wallet_balance', 0) + 400
-                    user['referral_reward_claimed'] = True
-                    break
-            break
-    return jsonify({'success': True})
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute("SELECT user_email FROM pending_referrals WHERE id = %s", (referral_id,))
+        result = cur.fetchone()
+        
+        if result:
+            cur.execute("UPDATE users SET wallet_balance = wallet_balance + 400, referral_reward_claimed = TRUE WHERE email = %s", (result[0],))
+            cur.execute("UPDATE pending_referrals SET status = 'completed' WHERE id = %s", (referral_id,))
+            conn.commit()
+        
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Approve referral error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/admin/decline-referral/<int:referral_id>', methods=['POST'])
 def decline_referral(referral_id):
-    for referral in pending_referrals:
-        if referral['id'] == referral_id:
-            referral['status'] = 'declined'
-            break
-    return jsonify({'success': True})
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE pending_referrals SET status = 'declined' WHERE id = %s", (referral_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"Decline referral error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Add OPTIONS handler for CORS preflight
+@app.route('/api/<path:path>', methods=['OPTIONS'])
+def handle_options(path):
+    return '', 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     print(f"🚀 Starting server on port {port}")
-    print(f"📝 Test users loaded:")
-    print(f"   - test@test.com / 123456 (Wallet: ₦1000)")
-    print(f"   - demo@onslot.com / demo123 (Wallet: ₦500)")
-    print(f"   - admin / admin123 (Admin access)")
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=False)
